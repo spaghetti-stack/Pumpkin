@@ -6,6 +6,7 @@ pub(crate) mod arithmetic;
 pub(crate) mod clausal;
 mod cumulative;
 pub(crate) mod element;
+pub(crate) mod global_cardinality;
 mod reified_propagator;
 pub(crate) use arithmetic::*;
 pub use cumulative::CumulativeExplanationType;
@@ -13,3 +14,5 @@ pub use cumulative::CumulativeOptions;
 pub use cumulative::CumulativePropagationMethod;
 pub(crate) use cumulative::*;
 pub(crate) use reified_propagator::*;
+
+pub use global_cardinality::simple_gcc_lower_upper::Values;

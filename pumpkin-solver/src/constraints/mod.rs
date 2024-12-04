@@ -29,6 +29,7 @@ mod clause;
 mod constraint_poster;
 mod cumulative;
 mod element;
+pub mod global_cardinality_lower_upper;
 
 use std::num::NonZero;
 
