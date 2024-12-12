@@ -5,6 +5,7 @@
 pub(crate) mod arithmetic;
 mod cumulative;
 pub(crate) mod element;
+pub(crate) mod global_cardinality;
 pub(crate) mod nogoods;
 mod reified_propagator;
 pub(crate) use arithmetic::*;
@@ -13,3 +14,5 @@ pub use cumulative::CumulativeOptions;
 pub use cumulative::CumulativePropagationMethod;
 pub(crate) use cumulative::*;
 pub(crate) use reified_propagator::*;
+
+pub use global_cardinality::Values;
