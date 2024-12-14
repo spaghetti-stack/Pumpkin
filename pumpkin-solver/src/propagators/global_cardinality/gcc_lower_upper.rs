@@ -318,20 +318,20 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             let ivar = curr_edge.target();
             let ival = curr_edge.source();
 
+            let var_index = graph_data
+                .variables_nodes
+                .iter()
+                .position(|vn| *vn == ivar)
+                .unwrap();
+
+            let val_index = graph_data
+                .values_nodes
+                .iter()
+                .position(|vn| *vn == ival)
+                .unwrap();
+
             if curr_edge.weight().flow_display == 0 && are_different(ivar, ival) {
                 inconsistent_edges.push(curr_edge);
-
-                let var_index = graph_data
-                    .variables_nodes
-                    .iter()
-                    .position(|vn| *vn == ivar)
-                    .unwrap();
-
-                let val_index = graph_data
-                    .values_nodes
-                    .iter()
-                    .position(|vn| *vn == ival)
-                    .unwrap();
 
                 context.remove(
                     &self.variables[var_index],
@@ -344,12 +344,18 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                     var_index + 1,
                     self.values[val_index].value
                 )
+            } else {
+                println!(
+                    "Kept: x{} = {}",
+                    var_index + 1,
+                    self.values[val_index].value
+                );
             }
         }
 
         println!("Inconsistent edges: {:?}", inconsistent_edges);
 
-        //panic!("Test");
+        panic!("Test");
 
         Ok(())
     }
