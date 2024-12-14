@@ -6,6 +6,7 @@ use pumpkin_solver::{
     constraints::{self, global_cardinality_lower_upper::Values},
     results::{solution_iterator::IteratedSolution, ProblemSolution, SatisfactionResult},
     termination::Indefinite,
+    variables::IntegerVariable,
     Solver,
 };
 
@@ -19,12 +20,15 @@ fn main() {
         .init();
 
     // We create 3 variables with domains within the range [0, 10]
-    let x11 = solver.new_bounded_integer(1, 4);
-    let x12 = solver.new_bounded_integer(1, 2);
-    let x21 = solver.new_bounded_integer(1, 5);
-    let x22 = solver.new_bounded_integer(1, 2);
+    let x1 = solver.new_bounded_integer(1, 2);
+    let x2 = solver.new_bounded_integer(1, 2);
+    let x3 = solver.new_bounded_integer(1, 2);
+    let x4 = solver.new_bounded_integer(1, 2);
+    let x5 = solver.new_bounded_integer(1, 3);
+    let x6 = solver.new_bounded_integer(2, 5);
+    let x7 = solver.new_sparse_integer(vec![3, 5]);
 
-    let vars = vec![x11, x12, x21, x22];
+    let vars = vec![x1, x2, x3, x4, x5, x6, x7];
 
     // We create the constraint:
     let _ = solver
@@ -40,7 +44,22 @@ fn main() {
                     Values {
                         value: 2,
                         omin: 1,
+                        omax: 2,
+                    },
+                    Values {
+                        value: 3,
+                        omin: 1,
                         omax: 1,
+                    },
+                    Values {
+                        value: 4,
+                        omin: 0,
+                        omax: 2,
+                    },
+                    Values {
+                        value: 5,
+                        omin: 0,
+                        omax: 2,
                     },
                 ],
             ),
