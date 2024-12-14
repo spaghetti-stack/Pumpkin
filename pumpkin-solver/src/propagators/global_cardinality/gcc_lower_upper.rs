@@ -1,9 +1,10 @@
-use std::{borrow::Borrow, cell::RefCell};
+use std::{borrow::Borrow, cell::RefCell, collections::HashMap};
 
 use petgraph::{
     dot::Dot,
-    graph::{self, NodeIndex},
+    graph::{self, DiGraph, NodeIndex},
     prelude::EdgeIndex,
+    visit::EdgeRef,
     Graph,
 };
 
@@ -256,7 +257,99 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
         // println!("{}", Dot::new(&result));
 
-        panic!("Test");
+        // Find the residual graph
+        let mut residual_graph = DiGraph::new();
+
+        // Add the same nodes to the residual graph
+        let nodes: Vec<_> = graph_data
+            .graph
+            .node_indices()
+            .map(|idx| residual_graph.add_node(graph_data.graph[idx].clone()))
+            .collect();
+
+        assert!(graph_data.graph.node_count() == residual_graph.node_count());
+
+        // Iterate over edges to calculate residual capacities
+        for edge in graph_data.graph.edge_references() {
+            let src = edge.source();
+            let dst = edge.target();
+            let BoundedCapacity {
+                capacity,
+                lower_bound,
+                flow_display,
+            } = edge.weight();
+
+            // Add forward edge with residual capacity
+            if capacity > flow_display {
+                let _ = residual_graph.add_edge(
+                    nodes[src.index()],
+                    nodes[dst.index()],
+                    capacity - flow_display,
+                );
+            }
+
+            // Add reverse edge with residual capacity (equal to flow)
+            if *flow_display > *lower_bound {
+                let _ =
+                    residual_graph.add_edge(nodes[dst.index()], nodes[src.index()], *flow_display);
+            }
+        }
+
+        println!("{}", Dot::new(&residual_graph));
+
+        let scc = petgraph::algo::tarjan_scc(&residual_graph);
+
+        let mut node_to_scc = HashMap::new();
+        for (scc_index, scc) in scc.iter().enumerate() {
+            for &node in scc {
+                let _ = node_to_scc.insert(node, scc_index);
+            }
+        }
+
+        // Example: Check if two nodes are in different SCCs
+        let are_different =
+            |node1: NodeIndex, node2: NodeIndex| node_to_scc.get(&node1) != node_to_scc.get(&node2);
+
+        let mut inconsistent_edges = Vec::new();
+
+        let edges_ref: Vec<_> = graph_data.graph.edge_references().collect();
+        for edge in graph_data.intermediate_edges {
+            let curr_edge = edges_ref[edge.index()];
+            let ivar = curr_edge.target();
+            let ival = curr_edge.source();
+
+            if curr_edge.weight().flow_display == 0 && are_different(ivar, ival) {
+                inconsistent_edges.push(curr_edge);
+
+                let var_index = graph_data
+                    .variables_nodes
+                    .iter()
+                    .position(|vn| *vn == ivar)
+                    .unwrap();
+
+                let val_index = graph_data
+                    .values_nodes
+                    .iter()
+                    .position(|vn| *vn == ival)
+                    .unwrap();
+
+                context.remove(
+                    &self.variables[var_index],
+                    self.values[val_index].value,
+                    conjunction_all_vars(&context, &self.variables),
+                );
+
+                println!(
+                    "Removed: x{} = {}",
+                    var_index + 1,
+                    self.values[val_index].value
+                )
+            }
+        }
+
+        println!("Inconsistent edges: {:?}", inconsistent_edges);
+
+        //panic!("Test");
 
         Ok(())
     }
