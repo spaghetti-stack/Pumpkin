@@ -2,16 +2,20 @@ use crate::{
     basic_types::Inconsistency,
     conjunction,
     engine::{
-        propagation::{Propagator, ReadDomains},
+        propagation::{LocalId, Propagator, ReadDomains},
         reason::Reason,
-        EmptyDomain,
+        DomainEvents, EmptyDomain,
     },
     predicate,
     predicates::{Predicate, PropositionalConjunction},
+    propagators::global_cardinality::*,
     variables::{IntegerVariable, Literal},
 };
 
 use super::Values;
+
+// local ids of array vars are shifted by ID_X_OFFSET
+const ID_X_OFFSET: u32 = 2;
 
 #[derive(Clone, Debug)]
 pub(crate) struct SimpleGCCLowerUpper<Variable> {
@@ -25,47 +29,11 @@ impl<Variable: IntegerVariable> SimpleGCCLowerUpper<Variable> {
     }
 }
 
-/// Check if, in all variables with a fixed assignment `value` occurs at least `min` and at most `max` times.
-fn vars_satisfy_value<Variable: IntegerVariable>(
-    vars: &[Variable],
-    value: i32,
-    min: i32,
-    max: i32,
-    context: &crate::engine::propagation::PropagationContextMut,
-) -> bool {
-    let occurences: i32 = vars
-        .iter()
-        .filter(|v| context.is_fixed(*v) && context.upper_bound(*v) == value)
-        .count() as i32;
-
-    occurences >= min && occurences <= max
-}
-
+/// Bruteforce implementation of the Global Cardinality Constraint (Lower-Upper)
 impl<Variable: IntegerVariable + 'static> Propagator for SimpleGCCLowerUpper<Variable> {
     fn name(&self) -> &str {
-        "Global Cardinality Low Up"
+        "Simple Global Cardinality Low Up"
     }
-
-    //     fn debug_propagate_from_scratch(
-    //     &self,
-    //     mut context: crate::engine::propagation::PropagationContextMut,
-    // ) -> crate::basic_types::PropagationStatusCP {
-    //     println!("called. {:?}, {:?} \n", context, self.values);
-    //     for value in self.values.clone() {
-    //         let (assigned, others): (Vec<_>, Vec<_>) = self.variables.iter().partition(|var| {
-    //             context.is_fixed(*var) && context.lower_bound(*var) == value.value
-    //         });
-
-    //         if assigned.len() as i32 >= value.omax {
-    //             others.iter().try_for_each(|v| {
-    //                 let vv = *v;
-    //                 context.remove(vv, value.value, conjunction!([vv != value.value]))
-    //             })?;
-    //         }
-    //     }
-
-    //     Ok(())
-    // }
 
     fn debug_propagate_from_scratch(
         &self,
@@ -79,11 +47,6 @@ impl<Variable: IntegerVariable + 'static> Propagator for SimpleGCCLowerUpper<Var
             );
         });
         println!();
-
-        let x1 = self.variables.get(0).unwrap();
-        let x2 = self.variables.get(1).unwrap();
-        let x3 = self.variables.get(2).unwrap();
-        let x4 = self.variables.get(3).unwrap();
 
         // Wait until the search fixes all values, and then check if the assignment satisfies the constraint of the propagator.
         if self.variables.iter().all(|var| context.is_fixed(var))
@@ -101,32 +64,11 @@ impl<Variable: IntegerVariable + 'static> Propagator for SimpleGCCLowerUpper<Var
             // If not, need to use an explanation so that the solver knows this assignment is not valid?
             //TODO: Implement the explanation for an error.
 
-            println!("this!!1");
-            return Err(Inconsistency::Conflict(conjunction!(
-                [x1 == context.lower_bound(x1)]
-                    & [x2 == context.lower_bound(x2)]
-                    & [x3 == context.lower_bound(x3)]
-                    & [x4 == context.lower_bound(x4)]
+            println!("all values fixed");
+            return Err(Inconsistency::Conflict(conjunction_all_vars(
+                &context,
+                &self.variables,
             )));
-            //context.remove(x1, 1, conjunction!())?;
-            // let r = context.remove(
-            //     x1,
-            //     context.lower_bound(x1),
-            //     //PropositionalConjunction::new(vec![Predicate::False]),
-            //     //conjunction!([x1 =! 1] & [x2 == 1] & [x3 == 1] & [x4 == 1]),
-            //     conjunction!(),
-            // )?;
-            //return Err(Inconsistency::EmptyDomain);
-
-            //println!("{:?}", r);
-            //r?
-            // return Err(conjunction!(
-            //     [x1 == context.lower_bound(x1)]
-            //         & [x2 == context.lower_bound(x2)]
-            //         & [x3 == context.lower_bound(x3)]
-            //         & [x4 == context.lower_bound(x4)]
-            // )
-            // .into());
         }
 
         Ok(())
@@ -134,8 +76,75 @@ impl<Variable: IntegerVariable + 'static> Propagator for SimpleGCCLowerUpper<Var
 
     fn initialise_at_root(
         &mut self,
-        _: &mut crate::engine::propagation::PropagatorInitialisationContext,
+        context: &mut crate::engine::propagation::PropagatorInitialisationContext,
     ) -> Result<(), PropositionalConjunction> {
+        // Register all variables to domain change events.
+        self.variables.iter().enumerate().for_each(|(i, x_i)| {
+            let _ = context.register(
+                x_i.clone(),
+                DomainEvents::ANY_INT,
+                LocalId::from(i as u32 + ID_X_OFFSET),
+            );
+        });
+
+        // Register for backtrack events if needed with:
+        //context.register_for_backtrack_events(var, domain_events, local_id);
         Ok(())
     }
+
+    fn propagate(
+        &mut self,
+        context: crate::engine::propagation::PropagationContextMut,
+    ) -> crate::basic_types::PropagationStatusCP {
+        self.debug_propagate_from_scratch(context)
+    }
+
+    fn notify(
+        &mut self,
+        _context: crate::engine::propagation::PropagationContext,
+        _local_id: crate::engine::propagation::LocalId,
+        _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
+    ) -> crate::engine::propagation::EnqueueDecision {
+        println!("notify");
+        crate::engine::propagation::EnqueueDecision::Enqueue
+    }
+
+    fn notify_backtrack(
+        &mut self,
+        _context: crate::engine::propagation::PropagationContext,
+        _local_id: crate::engine::propagation::LocalId,
+        _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
+    ) {
+        println!("notify backtrack");
+    }
+
+    fn synchronise(&mut self, _context: crate::engine::propagation::PropagationContext) {}
+
+    fn priority(&self) -> u32 {
+        // setting an arbitrary priority by default
+        3
+    }
+
+    fn detect_inconsistency(
+        &self,
+        _context: crate::engine::propagation::PropagationContext,
+    ) -> Option<PropositionalConjunction> {
+        None
+    }
+
+    fn lazy_explanation(
+        &mut self,
+        _code: u64,
+        _context: crate::engine::propagation::ExplanationContext,
+    ) -> &[Predicate] {
+        std::panic!(
+            "{}",
+            format!(
+                "Propagator {} does not support lazy explanations.",
+                self.name()
+            )
+        );
+    }
+
+    fn log_statistics(&self, _statistic_logger: crate::statistics::StatisticLogger) {}
 }
