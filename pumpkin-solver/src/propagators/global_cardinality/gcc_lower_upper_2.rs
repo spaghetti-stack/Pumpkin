@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::{
     basic_types::Inconsistency,
     conjunction,
@@ -77,18 +79,17 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
         mut context: crate::engine::propagation::PropagationContextMut,
     ) -> crate::basic_types::PropagationStatusCP {
         self.variables.iter().for_each(|v| {
-            println!(
+            debug!(
                 "called. u: {:?}, l: {:?}",
                 context.upper_bound(v),
                 context.lower_bound(v)
             );
         });
-        println!();
 
         self.values.iter().try_for_each(|value| {
             let min = min_count(&self.variables, value.value, &context);
             let max = max_count(&self.variables, value.value, &context);
-            println!("v: {:?}, min_count: {:?}, max_count: {:?}", value, min, max);
+            debug!("v: {:?}, min_count: {:?}, max_count: {:?}", value, min, max);
 
             // If this is false, there is definitely no solution
             if min > value.omax || max < value.omin {
@@ -100,7 +101,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
             }
 
             self.variables.iter().try_for_each(|var| {
-                println!(
+                debug!(
                     "var: u {:?}, l: {:?}",
                     context.upper_bound(var),
                     context.lower_bound(var)
@@ -111,7 +112,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
                     if !context.is_fixed(var)
                         && min_count(&self.variables, value.value, &context) + 1 > value.omax
                     {
-                        println!("  Removing val = {}", value.value);
+                        debug!("  Removing val = {}", value.value);
                         context.remove(
                             var,
                             value.value,
@@ -121,7 +122,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
                     //If not assigning variable $x$ to this value $v$ would make the max_count lower than the lower bound,
                     //then problem becomes inconsistent. Therefore  $D(x)=v$.
                     else if max_count(&self.variables, value.value, &context) - 1 < value.omin {
-                        println!("  Setting val = {}", value.value);
+                        debug!("  Setting val = {}", value.value);
                         context.set_lower_bound(
                             var,
                             value.value,
@@ -174,7 +175,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
         _local_id: crate::engine::propagation::LocalId,
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) -> crate::engine::propagation::EnqueueDecision {
-        println!("notify");
+        debug!("notify");
         crate::engine::propagation::EnqueueDecision::Enqueue
     }
 
@@ -184,6 +185,6 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
         _local_id: crate::engine::propagation::LocalId,
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) {
-        println!("notify backtrack");
+        debug!("notify backtrack");
     }
 }

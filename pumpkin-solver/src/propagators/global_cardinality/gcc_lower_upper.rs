@@ -1,5 +1,6 @@
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap};
 
+use log::debug;
 use petgraph::{
     dot::Dot,
     graph::{self, DiGraph, NodeIndex},
@@ -96,9 +97,9 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
             .borrow_mut()
             .add_edge(sink, source, (0, u32::MAX).into());
 
-        //println!("graph: {:?}", graph);
+        //debug!("graph: {:?}", graph);
 
-        //println!("{}", Dot::new(&graph.borrow().clone()));
+        //debug!("{}", Dot::new(&graph.borrow().clone()));
 
         GraphData {
             graph: graph.into_inner(),
@@ -192,13 +193,12 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         mut context: crate::engine::propagation::PropagationContextMut,
     ) -> crate::basic_types::PropagationStatusCP {
         self.variables.iter().for_each(|v| {
-            println!(
+            debug!(
                 "called. u: {:?}, l: {:?}",
                 context.upper_bound(v),
                 context.lower_bound(v)
             );
         });
-        println!();
 
         //let graph_data = self.construct_graph(&context);
 
@@ -220,9 +220,9 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 edge.flow_display = flow.capacity;
             });
 
-        println!("{}", Dot::new(&graph_data.graph));
+        debug!("{}", Dot::new(&graph_data.graph));
 
-        println!("Feasible flow: {:?}", max_flow);
+        debug!("Feasible flow: {:?}", max_flow);
 
         self.update_value_edges_max_flow(&mut graph_data);
 
@@ -243,19 +243,19 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 edge.flow_display = flow.capacity;
             });
 
-        println!("{}", Dot::new(&graph_data.graph));
+        debug!("{}", Dot::new(&graph_data.graph));
 
         // Find maximum flow with lower bounds
 
-        println!("Max flow: {:?}", max_flow);
+        debug!("Max flow: {:?}", max_flow);
 
         // //edge_flows.iter().enumerate().for_each(|(i, e)| {
-        // //    println!("{}: {}", i, e);
+        // //    debug!("{}: {}", i, e);
         // //});
 
         // let mut result = graph.clone();
 
-        // println!("{}", Dot::new(&result));
+        // debug!("{}", Dot::new(&result));
 
         // Find the residual graph
         let mut residual_graph = DiGraph::new();
@@ -295,7 +295,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             }
         }
 
-        println!("{}", Dot::new(&residual_graph));
+        debug!("{}", Dot::new(&residual_graph));
 
         let scc = petgraph::algo::tarjan_scc(&residual_graph);
 
@@ -339,13 +339,13 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                     conjunction_all_vars(&context, &self.variables),
                 );
 
-                println!(
+                debug!(
                     "Removed: x{} = {}",
                     var_index + 1,
                     self.values[val_index].value
                 )
             } else {
-                println!(
+                debug!(
                     "Kept: x{} = {}",
                     var_index + 1,
                     self.values[val_index].value
@@ -353,9 +353,9 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             }
         }
 
-        println!("Inconsistent edges: {:?}", inconsistent_edges);
+        debug!("Inconsistent edges: {:?}", inconsistent_edges);
 
-        panic!("Test");
+       // panic!("Test");
 
         Ok(())
     }
@@ -364,7 +364,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         &mut self,
         context: &mut crate::engine::propagation::PropagatorInitialisationContext,
     ) -> Result<(), PropositionalConjunction> {
-        println!("initialize root");
+        debug!("initialize root");
 
         // Register all variables to domain change events.
         self.variables.iter().enumerate().for_each(|(i, x_i)| {
@@ -388,7 +388,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         _local_id: crate::engine::propagation::LocalId,
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) -> crate::engine::propagation::EnqueueDecision {
-        println!("notify");
+        debug!("notify");
         crate::engine::propagation::EnqueueDecision::Enqueue
     }
 
@@ -398,6 +398,6 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         _local_id: crate::engine::propagation::LocalId,
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) {
-        println!("notify backtrack");
+        debug!("notify backtrack");
     }
 }

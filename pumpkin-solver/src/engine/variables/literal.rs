@@ -153,6 +153,13 @@ impl IntegerVariable for Literal {
     fn watch_all_backtrack(&self, watchers: &mut Watchers<'_>, events: EnumSet<IntDomainEvent>) {
         self.integer_variable.watch_all_backtrack(watchers, events)
     }
+
+
+    fn describe_domain(&self, assignment: &Assignments) -> Vec<Predicate> {
+        // The description should not actually change. It is a description of the domain as seen by
+        // the solver, not as seen by the user of this view.
+        self.integer_variable.describe_domain(assignment)
+    }
 }
 
 impl PredicateConstructor for Literal {

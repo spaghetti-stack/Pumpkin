@@ -8,6 +8,7 @@ use crate::engine::Assignments;
 use crate::engine::EmptyDomain;
 use crate::engine::IntDomainEvent;
 use crate::engine::Watchers;
+use crate::predicates::Predicate;
 
 /// A trait specifying the required behaviour of an integer variable such as retrieving a
 /// lower-bound ([`IntegerVariable::lower_bound`]) or adjusting the bounds
@@ -76,4 +77,6 @@ pub trait IntegerVariable:
 
     /// Decode a domain event for this variable.
     fn unpack_event(&self, event: OpaqueDomainEvent) -> IntDomainEvent;
+
+    fn describe_domain(&self, assignment: &Assignments) -> Vec<Predicate>;
 }

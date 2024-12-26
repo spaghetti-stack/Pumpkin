@@ -214,6 +214,12 @@ where
             self.inner.unpack_event(event)
         }
     }
+
+    fn describe_domain(&self, assignment: &Assignments) -> Vec<Predicate> {
+        // The description should not actually change. It is a description of the domain as seen by
+        // the solver, not as seen by the user of this view.
+        self.inner.describe_domain(assignment)
+    }
 }
 
 impl<View> TransformableVariable<AffineView<View>> for AffineView<View>

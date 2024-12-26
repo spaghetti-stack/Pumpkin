@@ -45,10 +45,11 @@ where
     let res: Vec<Predicate> = vars
         .into_iter()
         .flat_map(|var| {
-            [
-                predicate!(var >= context.lower_bound(var)),
-                predicate!(var <= context.upper_bound(var)),
-            ]
+            //[
+            //    predicate!(var >= context.lower_bound(var)),
+            //    predicate!(var <= context.upper_bound(var)),
+            //]
+            var.describe_domain(&context.assignments)
         })
         .collect();
     res.into()

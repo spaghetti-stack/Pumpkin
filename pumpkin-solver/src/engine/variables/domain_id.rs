@@ -10,6 +10,7 @@ use crate::engine::Assignments;
 use crate::engine::EmptyDomain;
 use crate::engine::IntDomainEvent;
 use crate::engine::Watchers;
+use crate::predicates::Predicate;
 
 /// A structure which represents the most basic [`IntegerVariable`]; it is simply the id which links
 /// to a domain (hence the name).
@@ -105,6 +106,9 @@ impl IntegerVariable for DomainId {
 
     fn unpack_event(&self, event: OpaqueDomainEvent) -> IntDomainEvent {
         event.unwrap()
+    }
+    fn describe_domain(&self, assignment: &Assignments) -> Vec<Predicate> {
+        assignment.get_domain_description(*self)
     }
 }
 
