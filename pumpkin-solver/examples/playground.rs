@@ -1,18 +1,18 @@
 use std::borrow::{Borrow, BorrowMut};
 
+use convert_case::Case;
 use log::LevelFilter;
 use petgraph::{dot::Dot, visit::IntoEdges, Graph, IntoWeightedEdge};
 use pumpkin_solver::{
-    constraints::{self, global_cardinality_lower_upper::Values},
-    results::{solution_iterator::IteratedSolution, ProblemSolution, SatisfactionResult},
-    termination::Indefinite,
-    variables::IntegerVariable,
-    Solver,
+    constraints::{self, global_cardinality_lower_upper::Values}, results::{solution_iterator::IteratedSolution, ProblemSolution, SatisfactionResult}, statistics::configure_statistic_logging, termination::Indefinite, variables::IntegerVariable, Solver
 };
 
 fn main() {
     // We create the solver with default options
     let mut solver = Solver::default();
+
+    configure_statistic_logging("",  None,  Some(Case::Camel),  None );
+
 
     env_logger::Builder::new()
         .filter_level(LevelFilter::Trace)
@@ -81,6 +81,8 @@ fn main() {
             println!("{:?}: {:?}", var, solution.get_integer_value(var));
         }
         println!("");
+
+        solver.log_statistics();
     }
     //{
 
