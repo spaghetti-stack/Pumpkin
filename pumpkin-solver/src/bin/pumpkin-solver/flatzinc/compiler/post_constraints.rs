@@ -1,6 +1,5 @@
 //! Compile constraints into CP propagators
 
-use std::borrow::BorrowMut;
 use std::rc::Rc;
 
 use pumpkin_solver::constraints;

@@ -2,16 +2,13 @@ use log::debug;
 
 use crate::{
     basic_types::Inconsistency,
-    conjunction,
     engine::{
         propagation::{LocalId, Propagator, ReadDomains},
-        reason::Reason,
-        DomainEvents, EmptyDomain,
+        DomainEvents,
     },
-    predicate,
-    predicates::{Predicate, PropositionalConjunction},
-    propagators::global_cardinality::conjunction_all_vars,
-    variables::{IntegerVariable, Literal},
+    predicates::PropositionalConjunction,
+    propagators::global_cardinality::{conjunction_all_vars, max_count, min_count},
+    variables::IntegerVariable,
 };
 
 use super::Values;
@@ -28,45 +25,6 @@ impl<Variable: IntegerVariable> GCCLowerUpper2<Variable> {
     pub(crate) fn new(variables: Box<[Variable]>, values: Box<[Values]>) -> Self {
         Self { variables, values }
     }
-}
-
-/// Check if, in all variables with a fixed assignment `value` occurs at least `min` and at most `max` times.
-fn vars_satisfy_value<Variable: IntegerVariable>(
-    vars: &[Variable],
-    value: i32,
-    min: i32,
-    max: i32,
-    context: &crate::engine::propagation::PropagationContextMut,
-) -> bool {
-    let occurences: i32 = vars
-        .iter()
-        .filter(|v| context.is_fixed(*v) && context.upper_bound(*v) == value)
-        .count() as i32;
-
-    occurences >= min && occurences <= max
-}
-
-fn min_count<Variable: IntegerVariable>(
-    vars: &[Variable],
-    value: i32,
-    context: &crate::engine::propagation::PropagationContextMut,
-) -> u32 {
-    let occurences = vars
-        .iter()
-        .filter(|v| context.is_fixed(*v) && context.upper_bound(*v) == value)
-        .count() as u32;
-
-    occurences
-}
-
-fn max_count<Variable: IntegerVariable>(
-    vars: &[Variable],
-    value: i32,
-    context: &crate::engine::propagation::PropagationContextMut,
-) -> u32 {
-    let occurences = vars.iter().filter(|v| context.contains(*v, value)).count() as u32;
-
-    occurences
 }
 
 impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable> {
@@ -172,7 +130,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
     fn notify(
         &mut self,
         _context: crate::engine::propagation::PropagationContext,
-        _local_id: crate::engine::propagation::LocalId,
+        _local_id: LocalId,
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) -> crate::engine::propagation::EnqueueDecision {
         debug!("notify");
@@ -182,7 +140,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
     fn notify_backtrack(
         &mut self,
         _context: crate::engine::propagation::PropagationContext,
-        _local_id: crate::engine::propagation::LocalId,
+        _local_id: LocalId,
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) {
         debug!("notify backtrack");

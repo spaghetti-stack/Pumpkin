@@ -41,7 +41,7 @@ impl Display for BoundedCapacity {
 }
 
 impl BoundedCapacity {
-    pub fn new(lower_bound: u32, capacity: u32) -> Self {
+    pub(crate) fn new(lower_bound: u32, capacity: u32) -> Self {
         Self {
             capacity,
             lower_bound,
@@ -84,13 +84,13 @@ impl PositiveMeasure for BoundedCapacity {
     }
 }
 
-impl std::cmp::PartialEq for BoundedCapacity {
+impl PartialEq for BoundedCapacity {
     fn eq(&self, other: &Self) -> bool {
         self.capacity == other.capacity
     }
 }
 
-impl std::cmp::PartialOrd for BoundedCapacity {
+impl PartialOrd for BoundedCapacity {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.capacity.partial_cmp(&other.capacity)
     }
@@ -103,7 +103,7 @@ fn residual_capacity<N>(
     flow: N::EdgeWeight,
 ) -> N::EdgeWeight
 where
-    N: IntoEdgesDirected<EdgeWeight = BoundedCapacity> + petgraph::visit::NodeIndexable,
+    N: IntoEdgesDirected<EdgeWeight = BoundedCapacity> + NodeIndexable,
     N::EdgeWeight: Sub<Output = N::EdgeWeight> + PositiveMeasure,
 {
     if vertex == edge.source() {
@@ -156,7 +156,7 @@ where
 {
     let mut visited = network.visit_map();
     let mut queue = VecDeque::new();
-    visited.visit(source);
+    let _ = visited.visit(source);
     queue.push_back(source);
 
     while let Some(vertex) = queue.pop_front() {
@@ -167,7 +167,7 @@ where
             let edge_index: usize = EdgeIndexable::to_index(&network, edge.id());
             let residual_cap = residual_capacity(&network, edge, next, flows[edge_index]);
             if !visited.is_visited(&next) && (residual_cap > N::EdgeWeight::zero()) {
-                visited.visit(next);
+                let _ = visited.visit(next);
                 edge_to[NodeIndexable::to_index(&network, next)] = Some(edge);
                 if destination == next {
                     return true;
@@ -237,11 +237,11 @@ where
 /// let (max_flow, _) = ford_fulkerson(&graph, source, destination);
 /// assert_eq!(23, max_flow);
 /// ```
-pub fn ford_fulkerson<N>(
+pub(crate) fn ford_fulkerson<N>(
     network: N,
     source: N::NodeId,
     destination: N::NodeId,
-    mut flows_initial: Vec<BoundedCapacity>,
+    flows_initial: Vec<BoundedCapacity>,
     mut max_flow: BoundedCapacity,
 ) -> (N::EdgeWeight, Vec<N::EdgeWeight>)
 where

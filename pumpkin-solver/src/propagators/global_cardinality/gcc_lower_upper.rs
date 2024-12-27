@@ -1,28 +1,19 @@
-use std::{borrow::Borrow, cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap};
 
 use log::debug;
 use petgraph::{
     dot::Dot,
-    graph::{self, DiGraph, NodeIndex},
+    graph::{DiGraph, NodeIndex},
     prelude::EdgeIndex,
     visit::EdgeRef,
     Graph,
 };
 
 use crate::{
-    basic_types::Inconsistency,
-    conjunction,
-    engine::{
+    basic_types::Inconsistency, engine::{
         propagation::{LocalId, Propagator, ReadDomains},
-        reason::Reason,
-        DomainEvents, EmptyDomain,
-    },
-    predicate,
-    predicates::{Predicate, PropositionalConjunction},
-    propagators::global_cardinality::{
-        conjunction_all_vars, ford_fulkerson_lower_bounds::ford_fulkerson,
-    },
-    variables::{IntegerVariable, Literal},
+        DomainEvents,
+    }, predicates::PropositionalConjunction, propagators::global_cardinality::*, variables::IntegerVariable
 };
 
 use super::{ford_fulkerson_lower_bounds::BoundedCapacity, Values};
@@ -51,7 +42,7 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
         &self,
         context: &crate::engine::propagation::PropagatorInitialisationContext,
     ) -> GraphData {
-        let mut graph = RefCell::new(Graph::<String, BoundedCapacity>::new());
+        let graph = RefCell::new(Graph::<String, BoundedCapacity>::new());
 
         let source = graph.borrow_mut().add_node("s".to_owned());
 
@@ -148,7 +139,7 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
         graph_data: &mut GraphData,
         context: &crate::engine::propagation::PropagationContextMut,
     ) {
-        let mut intermediate_edges = std::mem::take(&mut graph_data.intermediate_edges);
+        let intermediate_edges = std::mem::take(&mut graph_data.intermediate_edges);
         for edge in intermediate_edges {
             let _ = graph_data.graph.remove_edge(edge);
         }
@@ -200,6 +191,22 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             );
         });
 
+        self.values.iter().try_for_each(|value| {
+            let min = min_count(&self.variables, value.value, &context);
+            let max = max_count(&self.variables, value.value, &context);
+            debug!("v: {:?}, min_count: {:?}, max_count: {:?}", value, min, max);
+
+            // If this is false, there is definitely no solution
+            if min > value.omax || max < value.omin {
+                // Constraint violation
+                return Err(Inconsistency::Conflict(conjunction_all_vars(
+                    &context,
+                    &self.variables,
+                )));
+            }
+            Ok(())
+        })?;
+
         //let graph_data = self.construct_graph(&context);
 
         let mut graph_data = self.graph_data.clone();
@@ -226,7 +233,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
         self.update_value_edges_max_flow(&mut graph_data);
 
-        let (max_flow, edge_flows) = ford_fulkerson(
+        let (max_flow, edge_flows) = ford_fulkerson_lower_bounds::ford_fulkerson(
             &graph_data.graph,
             graph_data.source,
             graph_data.sink,
@@ -337,7 +344,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                     &self.variables[var_index],
                     self.values[val_index].value,
                     conjunction_all_vars(&context, &self.variables),
-                );
+                )?;
 
                 debug!(
                     "Removed: x{} = {}",
@@ -385,7 +392,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
     fn notify(
         &mut self,
         _context: crate::engine::propagation::PropagationContext,
-        _local_id: crate::engine::propagation::LocalId,
+        _local_id: LocalId,
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) -> crate::engine::propagation::EnqueueDecision {
         debug!("notify");
@@ -395,7 +402,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
     fn notify_backtrack(
         &mut self,
         _context: crate::engine::propagation::PropagationContext,
-        _local_id: crate::engine::propagation::LocalId,
+        _local_id: LocalId,
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) {
         debug!("notify backtrack");

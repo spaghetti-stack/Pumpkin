@@ -15,4 +15,3 @@ pub use cumulative::CumulativePropagationMethod;
 pub(crate) use cumulative::*;
 pub(crate) use reified_propagator::*;
 
-pub use global_cardinality::Values;

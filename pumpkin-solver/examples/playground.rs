@@ -1,10 +1,8 @@
-use std::borrow::{Borrow, BorrowMut};
 
 use convert_case::Case;
 use log::LevelFilter;
-use petgraph::{dot::Dot, visit::IntoEdges, Graph, IntoWeightedEdge};
 use pumpkin_solver::{
-    constraints::{self, global_cardinality_lower_upper::{GccMethod, Values}}, results::{solution_iterator::IteratedSolution, ProblemSolution, SatisfactionResult}, statistics::configure_statistic_logging, termination::Indefinite, variables::IntegerVariable, Solver
+    constraints::{self, global_cardinality_lower_upper::{GccMethod, Values}}, results::{solution_iterator::IteratedSolution, ProblemSolution}, statistics::configure_statistic_logging, termination::Indefinite, Solver
 };
 
 fn main() {

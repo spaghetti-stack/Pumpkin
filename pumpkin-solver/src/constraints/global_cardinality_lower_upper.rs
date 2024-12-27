@@ -1,11 +1,7 @@
-use std::convert::Into;
 
-use downcast_rs::impl_downcast;
-use petgraph::{dot::Dot, Graph};
 
 use crate::{
     propagators::global_cardinality::{
-        ford_fulkerson_lower_bounds::{ford_fulkerson, BoundedCapacity},
         gcc_lower_upper::GCCLowerUpper,
         gcc_lower_upper_2::GCCLowerUpper2,
         simple_gcc_lower_upper::SimpleGCCLowerUpper,
@@ -17,11 +13,13 @@ use super::Constraint;
 
 pub use crate::propagators::global_cardinality::Values;
 
+#[derive(Clone, Copy,  Debug)]
 pub enum GccMethod {
     Bruteforce,
     BasicFilter,
     ReginArcConsistent
 }
+
 
 impl Default for GccMethod {
     fn default() -> Self {
@@ -29,7 +27,9 @@ impl Default for GccMethod {
     }
 }
 
-pub enum GccConstraint<Variable: IntegerVariable + 'static> {
+
+#[derive(Debug)]
+enum GccConstraint<Variable: IntegerVariable + 'static> {
     Bruteforce(SimpleGCCLowerUpper<Variable>),
     BasicFilter(GCCLowerUpper2<Variable>),
     ReginArcConsistent(GCCLowerUpper<Variable>)

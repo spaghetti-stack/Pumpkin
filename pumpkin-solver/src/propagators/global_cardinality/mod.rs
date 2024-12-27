@@ -1,6 +1,5 @@
 use crate::{
     engine::propagation::ReadDomains,
-    predicate,
     predicates::{Predicate, PropositionalConjunction},
     variables::IntegerVariable,
 };
@@ -53,4 +52,27 @@ where
         })
         .collect();
     res.into()
+}
+
+fn min_count<Variable: IntegerVariable>(
+    vars: &[Variable],
+    value: i32,
+    context: &crate::engine::propagation::PropagationContextMut,
+) -> u32 {
+    let occurences = vars
+        .iter()
+        .filter(|v| context.is_fixed(*v) && context.upper_bound(*v) == value)
+        .count() as u32;
+
+    occurences
+}
+
+fn max_count<Variable: IntegerVariable>(
+    vars: &[Variable],
+    value: i32,
+    context: &crate::engine::propagation::PropagationContextMut,
+) -> u32 {
+    let occurences = vars.iter().filter(|v| context.contains(*v, value)).count() as u32;
+
+    occurences
 }

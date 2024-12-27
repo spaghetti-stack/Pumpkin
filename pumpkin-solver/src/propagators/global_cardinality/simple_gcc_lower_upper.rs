@@ -2,16 +2,13 @@ use log::debug;
 
 use crate::{
     basic_types::Inconsistency,
-    conjunction,
     engine::{
         propagation::{LocalId, Propagator, ReadDomains},
-        reason::Reason,
-        DomainEvents, EmptyDomain,
+        DomainEvents,
     },
-    predicate,
     predicates::{Predicate, PropositionalConjunction},
     propagators::global_cardinality::*,
-    variables::{IntegerVariable, Literal},
+    variables::IntegerVariable,
 };
 
 use super::Values;
@@ -39,7 +36,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for SimpleGCCLowerUpper<Var
 
     fn debug_propagate_from_scratch(
         &self,
-        mut context: crate::engine::propagation::PropagationContextMut,
+        context: crate::engine::propagation::PropagationContextMut,
     ) -> crate::basic_types::PropagationStatusCP {
         self.variables.iter().for_each(|v| {
             debug!(
@@ -103,7 +100,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for SimpleGCCLowerUpper<Var
     fn notify(
         &mut self,
         _context: crate::engine::propagation::PropagationContext,
-        _local_id: crate::engine::propagation::LocalId,
+        _local_id: LocalId,
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) -> crate::engine::propagation::EnqueueDecision {
         debug!("notify");
@@ -113,7 +110,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for SimpleGCCLowerUpper<Var
     fn notify_backtrack(
         &mut self,
         _context: crate::engine::propagation::PropagationContext,
-        _local_id: crate::engine::propagation::LocalId,
+        _local_id: LocalId,
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) {
         debug!("notify backtrack");
