@@ -1,8 +1,11 @@
 //! Compile constraints into CP propagators
 
+use std::borrow::BorrowMut;
 use std::rc::Rc;
 
 use pumpkin_solver::constraints;
+use pumpkin_solver::constraints::global_cardinality_lower_upper::GccMethod;
+use pumpkin_solver::constraints::global_cardinality_lower_upper::Values;
 use pumpkin_solver::constraints::Constraint;
 use pumpkin_solver::constraints::NegatableConstraint;
 use pumpkin_solver::predicate;
@@ -201,6 +204,9 @@ pub(crate) fn run(
 
             "pumpkin_cumulative" => compile_cumulative(context, exprs, &options)?,
             "pumpkin_cumulative_var" => todo!("The `cumulative` constraint with variable duration/resource consumption/bound is not implemented yet!"),
+            "pumpkin_gcc_bruteforce" => compile_gcc_low_up(context, exprs, annos, GccMethod::Bruteforce)?,
+            "pumpkin_gcc_basic_filter" => compile_gcc_low_up(context, exprs, annos, GccMethod::BasicFilter)?,
+            "pumpkin_gcc_regin" => compile_gcc_low_up(context, exprs, annos, GccMethod::ReginArcConsistent)?,
             unknown => todo!("unsupported constraint {unknown}"),
         };
 
@@ -691,4 +697,28 @@ fn compile_all_different(
     Ok(constraints::all_different(variables)
         .post(context.solver, None)
         .is_ok())
+}
+
+
+fn compile_gcc_low_up(
+    context: &mut CompilationContext,
+    exprs: &[flatzinc::Expr],
+    _: &[flatzinc::Annotation],
+    method: GccMethod
+) -> Result<bool, FlatZincError> {
+    check_parameters!(exprs, 4, "fzn_global_cardinality_low_up");
+
+    let variables = context.resolve_integer_variable_array(&exprs[0])?.to_vec();
+    let cover = context.resolve_array_integer_constants(&exprs[1])?.to_vec();
+    let lbound = context.resolve_array_integer_constants(&exprs[2])?.to_vec();
+    let ubound = context.resolve_array_integer_constants(&exprs[3])?.to_vec();
+
+    let values: Vec<Values> = cover.iter().zip(lbound).zip(ubound).map(|((c, l), u)| {
+        Values {value: *c, omin: l as u32, omax: u as u32}
+    }).collect();
+
+
+    Ok(constraints::global_cardinality_lower_upper::global_cardinality_lower_upper(variables, values, method)
+    .post(context.solver, None)
+    .is_ok())
 }
