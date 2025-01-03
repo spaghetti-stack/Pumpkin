@@ -3,6 +3,7 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from itertools import product
 import shutil
+import time
 
 temp_dir = './temp_directory'
 
@@ -71,7 +72,7 @@ for com in commands:
         # Copy the file to the temporary directory, overwriting if the file exists
         shutil.copy(input_file_path, destination_path)
 
-        output_path = f"{os.path.basename(destination_path)}-{os.path.basename(ifile[1])}.txt"
+        output_path = f"output/{os.path.basename(destination_path)}-{os.path.basename(ifile[1])}.txt"
         command = f"{com[1]} {destination_path} {ifile[1]}"
 
         commands_to_run.append(("com[0]", command, output_path))
@@ -96,12 +97,36 @@ def run_command(name, command, output_file):
     except subprocess.CalledProcessError as e:
         print(f"Command failed: {command}\nError: {e}")
 
+
+def print_status(futures, start_time, total_tasks):
+    # Count how many tasks have completed
+    completed_tasks = sum(1 for future in futures if future.done())
+    elapsed_time = time.time() - start_time
+    print(f"Elapsed time: {elapsed_time:.2f} seconds, {completed_tasks}/{total_tasks} tasks finished")
+
+
 def main():
     # Generate all combinations of input files, data files, and commands
 
     # Use ThreadPoolExecutor to run commands on multiple cores
     with ThreadPoolExecutor(max_workers=num_cores) as executor:
         futures = [executor.submit(run_command, name, cmd, outfile) for name, cmd, outfile in commands_to_run]
+
+        # Track the start time
+    start_time = time.time()
+
+    # Add a callback to each future to print the status when it finishes
+    for future in futures:
+        future.add_done_callback(lambda f: print_status(futures, start_time, len(futures)))
+
+    # Track progress every 5 seconds
+    while True:
+        time.sleep(5)  # Wait for 5 seconds
+        print_status(futures, start_time, len(futures))
+
+        # Check if all tasks are done
+        if all(future.done() for future in futures):
+            break
 
         # Wait for all futures to complete
         for future in futures:
