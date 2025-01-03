@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import product
 import shutil
 import time
+import shlex
 
 temp_dir = './temp_directory'
 
@@ -27,6 +28,9 @@ def replace_in_file(file_path, string1, string2):
 if not os.path.exists(temp_dir):
     os.makedirs(temp_dir)
 
+if not os.path.exists("./output"):
+    os.makedirs("./output")
+
 # Initialize an empty list to store tuples
 input_files = []
 
@@ -44,9 +48,8 @@ with open('inputs.txt', 'r') as file:
             input_files.append((parts[0], parts[1]))  # Two parts, normal tuple
 
 # Print the list of tuples
-print(input_files)
-output_dir = "output"  # Directory to save output
-pumpkin_command = "MZN_SOLVER_PATH=/Users/davidr86/Documents/Pumpkin/minizinc /Applications/MiniZincIDE.app/Contents/Resources/minizinc --solver /Users/davidr86/Documents/Pumpkin/minizinc/pumpkin.msc --output-time --statistics"
+#print(input_files)
+pumpkin_command = "MZN_SOLVER_PATH=/home/user/Documents/Pumpkin/minizinc minizinc --solver /home/user/Documents/Pumpkin/minizinc/pumpkin.msc --output-time --statistics"
 
 commands = [
     ("decomp",f"{pumpkin_command}", []),
@@ -54,7 +57,7 @@ commands = [
     ("basic_filter", f"{pumpkin_command}", [("global_cardinality_low_up(", "pumpkin_gcc_basic_filter("), ("", 'include "pumpkin_gcc.mzn";\n')])
 ]  # List of command templates
 
-print(commands)
+#print(commands)
 
 commands_to_run = []
 
@@ -72,28 +75,37 @@ for com in commands:
         # Copy the file to the temporary directory, overwriting if the file exists
         shutil.copy(input_file_path, destination_path)
 
-        output_path = f"output/{os.path.basename(destination_path)}-{os.path.basename(ifile[1])}.txt"
+        output_path = f"./output/{os.path.basename(destination_path)}-{os.path.basename(ifile[1])}.txt"
         command = f"{com[1]} {destination_path} {ifile[1]}"
 
         commands_to_run.append(("com[0]", command, output_path))
 
-        print(f"Copied {input_file_path} to {destination_path}")
+        #print(f"Copied {input_file_path} to {destination_path}")
 
         for replace in com[2]:
             replace_in_file(destination_path, replace[0], replace[1])
 
 
-print(f"ctr: {commands_to_run}")
+for _,_,output_path in commands_to_run:
+    print(output_path)
 
 
-num_cores = 6  # Number of cores to use
+num_cores = 5  # Number of cores to use
 
 
 def run_command(name, command, output_file):
     """Runs a command and saves the output to a file."""
+    print(f"run {command}")
     try:
+        command_parts = shlex.split(command)
+        env = os.environ.copy()  # Copy the current environment
+        if "=" in command_parts[0]:  # Check if the first part is an ENV=value pair
+            key, value = command_parts.pop(0).split("=", 1)  # Extract and remove it
+            env[key] = value
         with open(output_file, "w") as f:
-            subprocess.run(command, shell=True, stdout=f, stderr=subprocess.STDOUT, check=True)
+            res = subprocess.Popen(command_parts, env=env, stderr=f, stdout=f)
+            res.wait()  # Wait for process to finish
+
     except subprocess.CalledProcessError as e:
         print(f"Command failed: {command}\nError: {e}")
 
@@ -109,28 +121,35 @@ def main():
     # Generate all combinations of input files, data files, and commands
 
     # Use ThreadPoolExecutor to run commands on multiple cores
-    with ThreadPoolExecutor(max_workers=num_cores) as executor:
-        futures = [executor.submit(run_command, name, cmd, outfile) for name, cmd, outfile in commands_to_run]
+    executor =  ThreadPoolExecutor(max_workers=num_cores)
+    futures = []
+    for name, cmd, outfile in commands_to_run:
+        future = executor.submit(run_command, name, cmd, outfile) 
+        futures.append(future)
+        print("future added")
+
+    #[run_command(name, cmd, outfile) for name, cmd, outfile in [commands_to_run[0]]]
 
         # Track the start time
     start_time = time.time()
 
+    print("done creating futures")
     # Add a callback to each future to print the status when it finishes
     for future in futures:
         future.add_done_callback(lambda f: print_status(futures, start_time, len(futures)))
 
     # Track progress every 5 seconds
     while True:
-        time.sleep(5)  # Wait for 5 seconds
+        time.sleep(10)  # Wait for 5 seconds
         print_status(futures, start_time, len(futures))
 
         # Check if all tasks are done
         if all(future.done() for future in futures):
             break
 
-        # Wait for all futures to complete
-        for future in futures:
-            future.result()
+    # Wait for all futures to complete
+    for future in futures:
+        future.result()
 
 if __name__ == "__main__":
     main()
