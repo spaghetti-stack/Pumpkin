@@ -1,3 +1,6 @@
 target/
 .vscode/
 .idea/
+test_bench/output/
+test_bench/temp_directory/
+test_bench/*fzn-txt*
