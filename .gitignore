@@ -3,6 +3,6 @@ target/
 .idea/
 test_bench/output/
 test_bench/temp_directory/
-test_bench/*mzn-.txt*
-test_bench/*dzn.txt*
+test_bench/*mzn-.txt
+*dzn.txt*
 test_bench/inputs.txt
