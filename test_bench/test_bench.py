@@ -5,6 +5,9 @@ from itertools import product
 import shutil
 import time
 import shlex
+import argparse
+import random
+
 
 temp_dir = './temp_directory'
 
@@ -23,74 +26,6 @@ def replace_in_file(file_path, string1, string2):
     # Open the file again and overwrite it with the modified content
     with open(file_path, 'w') as file:
         file.write(modified_content)
-
-# Ensure the temporary directory exists
-if not os.path.exists(temp_dir):
-    os.makedirs(temp_dir)
-
-if not os.path.exists("./output"):
-    os.makedirs("./output")
-
-# Initialize an empty list to store tuples
-input_files = []
-
-# Open the file in read mode
-with open('inputs.txt', 'r') as file:
-    # Read each line in the file
-    for line in file:
-        # Strip the line of leading/trailing spaces and split it
-        parts = line.strip().split()
-        
-        # Ensure there is at least one part, and assign "" if there is no second part
-        if len(parts) == 1:
-            input_files.append((parts[0], ""))  # Only one part, second is an empty string
-        elif len(parts) == 2:
-            input_files.append((parts[0], parts[1]))  # Two parts, normal tuple
-
-# Print the list of tuples
-#print(input_files)
-pumpkin_command = "MZN_SOLVER_PATH=/home/user/Documents/Pumpkin/minizinc minizinc --solver /home/user/Documents/Pumpkin/minizinc/pumpkin.msc --output-time --statistics"
-
-commands = [
-    ("decomp",f"{pumpkin_command}", []),
-    ("regin", f"{pumpkin_command}", [("global_cardinality_low_up(", "pumpkin_gcc_regin("), ("", 'include "pumpkin_gcc.mzn";\n')]),
-    ("basic_filter", f"{pumpkin_command}", [("global_cardinality_low_up(", "pumpkin_gcc_basic_filter("), ("", 'include "pumpkin_gcc.mzn";\n')])
-]  # List of command templates
-
-#print(commands)
-
-commands_to_run = []
-
-# Iterate over each command (or each element in input_files)
-for com in commands:
-    for ifile in input_files:
-
-        input_file_path = ifile[0]
-    
-        path, ext = os.path.splitext(os.path.basename(input_file_path))
-
-        # Define the destination path in the temporary directory (using the file name from input_file)
-        destination_path = os.path.join(temp_dir, path+f"_{com[0]}"+ext)
-    
-        # Copy the file to the temporary directory, overwriting if the file exists
-        shutil.copy(input_file_path, destination_path)
-
-        output_path = f"./output/{os.path.basename(destination_path)}-{os.path.basename(ifile[1])}.txt"
-        command = f"{com[1]} {destination_path} {ifile[1]}"
-
-        commands_to_run.append(("com[0]", command, output_path))
-
-        #print(f"Copied {input_file_path} to {destination_path}")
-
-        for replace in com[2]:
-            replace_in_file(destination_path, replace[0], replace[1])
-
-
-for _,_,output_path in commands_to_run:
-    print(output_path)
-
-
-num_cores = 5  # Number of cores to use
 
 
 def run_command(name, command, output_file):
@@ -118,6 +53,131 @@ def print_status(futures, start_time, total_tasks):
 
 
 def main():
+
+    # Create the argument parser
+    parser = argparse.ArgumentParser(description="Process input and output directory paths.")
+
+    # Add arguments for input and output directories
+    parser.add_argument(
+        "--inputs",
+        type=str,
+        required=True,
+        help="Path to the input files or directory."
+    )
+
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        required=True,
+        help="Path to the output directory."
+    )
+
+    # Parse the arguments
+    args = parser.parse_args()
+
+    # Validate input path
+    if not os.path.exists(args.inputs):
+        print(f"Error: The input path '{args.inputs}' does not exist.")
+        return
+
+    output_dir = args.output_dir
+    inputs = args.inputs
+
+    # Validate or adjust output directory path
+    while os.path.exists(output_dir):
+        output_dir = output_dir.rstrip(os.sep) + "-new" # Remove trailing slash if it exists
+        print(f"Output directory exists. Using '{output_dir}' instead.")
+
+    try:
+        os.makedirs(output_dir)
+        print(f"Output directory '{output_dir}' is ready.")
+    except OSError as e:
+        print(f"Error: Could not create output directory '{output_dir}'. {e}")
+        return
+
+    # Confirm paths
+    print(f"Inputs path: {inputs}")
+    print(f"Output directory: {output_dir}")
+
+
+    # Ensure the temporary directory exists
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+
+
+    # Initialize an empty list to store tuples
+    input_files = []
+
+    # Open the file in read mode
+    with open(inputs, 'r') as file:
+        # Read each line in the file
+        for line in file:
+            # Strip the line of leading/trailing spaces and split it
+            parts = line.strip().split()
+            
+            # Ensure there is at least one part, and assign "" if there is no second part
+            if len(parts) == 1:
+                input_files.append((parts[0], "", 1))  # Only one part, second is an empty string
+            elif len(parts) == 2:
+                input_files.append((parts[0], parts[1], 1))  # Two parts, normal tuple
+            else:
+                input_files.append((parts[0], parts[1], parts[2]))
+
+    # Print the list of tuples
+    #print(input_files)
+    pumpkin_command = "MZN_SOLVER_PATH=/home/user/Documents/Pumpkin/minizinc minizinc --solver /home/user/Documents/Pumpkin/minizinc/pumpkin.msc --output-time --statistics"
+
+    commands = [
+        ("decomp",f"{pumpkin_command}", []),
+        ("regin", f"{pumpkin_command}", [("global_cardinality_low_up(", "pumpkin_gcc_regin("), ("", 'include "pumpkin_gcc.mzn";\n')]),
+        ("basic_filter", f"{pumpkin_command}", [("global_cardinality_low_up(", "pumpkin_gcc_basic_filter("), ("", 'include "pumpkin_gcc.mzn";\n')])
+    ]  # List of command templates
+
+    #print(commands)
+
+    commands_to_run = []
+
+    # Iterate over each command (or each element in input_files)
+    for ifile in input_files:
+        repetitions = ifile[2]
+        for com in commands:
+
+            input_file_path = ifile[0]
+            data_file = ifile[1]
+            command_name = com[0]
+            pumpkin_command = com[1]
+            replace_list = com[2]
+        
+            path, ext = os.path.splitext(os.path.basename(input_file_path))
+
+            # Define the destination path in the temporary directory (using the file name from input_file)
+            destination_path = os.path.join(temp_dir, path+f"_{command_name}"+ext)
+        
+            # Copy the file to the temporary directory, overwriting if the file exists
+            shutil.copy(input_file_path, destination_path)
+
+            for replace in replace_list:
+                replace_in_file(destination_path, replace[0], replace[1])
+
+            command = f"{pumpkin_command} {destination_path} {data_file}"
+
+            for n in range(repetitions):
+
+                output_path = f"{output_dir}/{os.path.basename(destination_path)}-{os.path.basename(data_file)}-{n}.txt"
+
+                commands_to_run.append(("com[0]", command, output_path))
+
+
+    # Shuffle benchmarks so repetitions are not always contiguous
+    random.seed(1)
+    random.shuffle(commands_to_run)
+
+    for _,_,output_path in commands_to_run:
+        print(output_path)
+
+
+    num_cores = 6  # Number of cores to use
+
     # Generate all combinations of input files, data files, and commands
 
     # Use ThreadPoolExecutor to run commands on multiple cores
