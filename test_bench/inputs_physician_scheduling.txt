@@ -1,0 +1,5 @@
+/home/user/Downloads/mzn-challenge/2021/physician-scheduling/physician-scheduling.mzn /home/user/Downloads/mzn-challenge/2021/physician-scheduling/instance03_0.34.dzn
+/home/user/Downloads/mzn-challenge/2021/physician-scheduling/physician-scheduling.mzn /home/user/Downloads/mzn-challenge/2021/physician-scheduling/instance10-duplicated_0.23.dzn
+/home/user/Downloads/mzn-challenge/2021/physician-scheduling/physician-scheduling.mzn /home/user/Downloads/mzn-challenge/2021/physician-scheduling/instance13-duplicated_0.56.dzn
+/home/user/Downloads/mzn-challenge/2021/physician-scheduling/physician-scheduling.mzn /home/user/Downloads/mzn-challenge/2021/physician-scheduling/instance17_oneweek_real.dzn
+/home/user/Downloads/mzn-challenge/2021/physician-scheduling/physician-scheduling.mzn /home/user/Downloads/mzn-challenge/2021/physician-scheduling/instance18_real.dzn

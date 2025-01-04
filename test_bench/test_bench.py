@@ -28,7 +28,7 @@ def replace_in_file(file_path, string1, string2):
         file.write(modified_content)
 
 
-def run_command(name, command, output_file, timeout=10800):
+def run_command(name, command, output_file, timeout=3600):
     """
     Runs a command and saves the output to a file.
     If the command takes more than `timeout` seconds, it is terminated.
