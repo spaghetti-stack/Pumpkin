@@ -28,21 +28,35 @@ def replace_in_file(file_path, string1, string2):
         file.write(modified_content)
 
 
-def run_command(name, command, output_file):
-    """Runs a command and saves the output to a file."""
-    print(f"run {command}")
+def run_command(name, command, output_file, timeout=10800):
+    """
+    Runs a command and saves the output to a file.
+    If the command takes more than `timeout` seconds, it is terminated.
+    """
+    print(f"Running command: {command}")
     try:
         command_parts = shlex.split(command)
         env = os.environ.copy()  # Copy the current environment
         if "=" in command_parts[0]:  # Check if the first part is an ENV=value pair
             key, value = command_parts.pop(0).split("=", 1)  # Extract and remove it
             env[key] = value
+        
         with open(output_file, "w") as f:
-            res = subprocess.Popen(command_parts, env=env, stderr=f, stdout=f)
-            res.wait()  # Wait for process to finish
-
-    except subprocess.CalledProcessError as e:
-        print(f"Command failed: {command}\nError: {e}")
+            process = subprocess.Popen(command_parts, env=env, stderr=f, stdout=f)
+            
+            try:
+                process.wait(timeout=timeout)  # Wait for process with a timeout
+            except subprocess.TimeoutExpired:
+                print(f"Command '{command}' timed out after {timeout} seconds.")
+                process.terminate()  # Gracefully terminate the process
+                try:
+                    process.wait(timeout=5)  # Allow some time for cleanup
+                except subprocess.TimeoutExpired:
+                    process.kill()  # Force kill if it doesn't exit in time
+                raise RuntimeError(f"Command '{command}' timed out and was terminated.")
+    
+    except Exception as e:
+        print(f"Command '{command}' failed with error: {e}")
 
 
 def print_status(futures, start_time, total_tasks):
@@ -186,7 +200,7 @@ def main():
     for name, cmd, outfile in commands_to_run:
         future = executor.submit(run_command, name, cmd, outfile) 
         futures.append(future)
-        print("future added")
+        #print("future added")
 
     #[run_command(name, cmd, outfile) for name, cmd, outfile in [commands_to_run[0]]]
 
@@ -207,9 +221,14 @@ def main():
         if all(future.done() for future in futures):
             break
 
-    # Wait for all futures to complete
-    for future in futures:
-        future.result()
+    
+    for i in range(len(futures)):
+        future = futures[i]
+        _, _, path = commands_to_run[i]
+        try:
+            future.result()
+        except Exception as e:
+            print(f"Command '{path}' encountered an error: {e}")
 
 if __name__ == "__main__":
     main()
