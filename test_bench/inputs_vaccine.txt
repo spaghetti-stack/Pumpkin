@@ -1,0 +1,1 @@
+/home/user/Downloads/mzn-challenge/2022/vaccine/vaccine.mzn /home/user/Downloads/mzn-challenge/2022/vaccine/v857.dzn 1

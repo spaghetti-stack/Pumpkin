@@ -11,6 +11,8 @@ import random
 
 temp_dir = './temp_directory'
 
+timeout_secs = 60*20 ## 20 minutes
+
 def replace_in_file(file_path, string1, string2):
     # Open the file and read all lines
     with open(file_path, 'r') as file:
@@ -28,7 +30,7 @@ def replace_in_file(file_path, string1, string2):
         file.write(modified_content)
 
 
-def run_command(name, command, output_file, timeout=3600):
+def run_command(name, command, output_file, timeout=timeout_secs+60):
     """
     Runs a command and saves the output to a file.
     If the command takes more than `timeout` seconds, it is terminated.
@@ -139,7 +141,7 @@ def main():
 
     # Print the list of tuples
     #print(input_files)
-    pumpkin_command = "MZN_SOLVER_PATH=/home/user/Documents/Pumpkin/minizinc minizinc --solver /home/user/Documents/Pumpkin/minizinc/pumpkin.msc --output-time --statistics"
+    pumpkin_command = f"MZN_SOLVER_PATH=/home/user/Documents/Pumpkin/minizinc minizinc --solver /home/user/Documents/Pumpkin/minizinc/pumpkin.msc --output-time --statistics --output-objective --time-limit {timeout_secs * 1000}"
 
     commands = [
         ("decomp",f"{pumpkin_command}", []),
@@ -153,7 +155,7 @@ def main():
 
     # Iterate over each command (or each element in input_files)
     for ifile in input_files:
-        repetitions = ifile[2]
+        repetitions = int(ifile[2])
         for com in commands:
 
             input_file_path = ifile[0]

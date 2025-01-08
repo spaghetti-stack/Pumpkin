@@ -1,0 +1,1 @@
+/home/user/Downloads/mzn-challenge/2021/community-detection/community-detection.mzn /home/user/Downloads/mzn-challenge/2021/community-detection/rnd_n100_e5000_s500_d300_c4_p50.json 1

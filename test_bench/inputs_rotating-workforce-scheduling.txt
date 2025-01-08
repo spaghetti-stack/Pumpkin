@@ -1,0 +1,3 @@
+/home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rotating-workforce-scheduling.mzn /home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rws-instance-e-90-s-2.dzn 1
+/home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rotating-workforce-scheduling.mzn /home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rws-instance-e-80-s-1.dzn 1
+/home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rotating-workforce-scheduling.mzn /home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rws-instance-e-30-s-9.dzn 1

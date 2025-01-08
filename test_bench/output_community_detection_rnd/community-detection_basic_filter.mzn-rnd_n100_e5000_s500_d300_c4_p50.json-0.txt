@@ -1,0 +1,43 @@
+% Generated FlatZinc statistics:
+%%%mzn-stat: paths=0
+%%%mzn-stat: flatBoolVars=4950
+%%%mzn-stat: flatIntVars=5054
+%%%mzn-stat: flatIntConstraints=10112
+%%%mzn-stat: evaluatedReifiedConstraints=4950
+%%%mzn-stat: method="maximize"
+%%%mzn-stat: flatTime=0.150558
+%%%mzn-stat-end
+%%%mzn-stat: engineStatisticsNumDecisions=0
+%%%mzn-stat: engineStatisticsNumConflicts=0
+%%%mzn-stat: engineStatisticsNumRestarts=0
+%%%mzn-stat: engineStatisticsNumPropagations=20286
+%%%mzn-stat: engineStatisticsTimeSpentInSolver=0
+%%%mzn-stat: learnedClauseStatisticsAverageConflictSize=0
+%%%mzn-stat: learnedClauseStatisticsAverageNumberOfRemovedLiteralsRecursive=0
+%%%mzn-stat: learnedClauseStatisticsAverageNumberOfRemovedLiteralsSemantic=0
+%%%mzn-stat: learnedClauseStatisticsNumUnitClausesLearned=0
+%%%mzn-stat: learnedClauseStatisticsAverageLearnedClauseLength=0
+%%%mzn-stat: learnedClauseStatisticsAverageBacktrackAmount=0
+%%%mzn-stat: learnedClauseStatisticsAverageLbd=0
+%%%mzn-stat-end
+x = [1, 2, 2, 3, 3, 2, 2, 3, 1, 1, 2, 2, 3, 1, 4, 4, 2, 4, 3, 1, 4, 4, 3, 3, 1, 3, 3, 2, 4, 3, 2, 4, 2, 1, 3, 4, 3, 4, 3, 3, 4, 3, 3, 3, 2, 4, 3, 4, 1, 3, 2, 4, 2, 4, 4, 2, 4, 4, 1, 1, 1, 3, 4, 2, 3, 1, 2, 2, 1, 4, 1, 3, 2, 3, 3, 4, 2, 3, 1, 4, 3, 4, 2, 2, 1, 2, 3, 4, 3, 1, 3, 2, 4, 3, 4, 1, 1, 4, 3, 3];
+% time elapsed: 0.62 s
+----------
+==========
+% time elapsed: 0.62 s
+%%%mzn-stat: objective=2484055
+%%%mzn-stat: engineStatisticsNumDecisions=0
+%%%mzn-stat: engineStatisticsNumConflicts=0
+%%%mzn-stat: engineStatisticsNumRestarts=0
+%%%mzn-stat: engineStatisticsNumPropagations=20286
+%%%mzn-stat: engineStatisticsTimeSpentInSolver=0
+%%%mzn-stat: learnedClauseStatisticsAverageConflictSize=0
+%%%mzn-stat: learnedClauseStatisticsAverageNumberOfRemovedLiteralsRecursive=0
+%%%mzn-stat: learnedClauseStatisticsAverageNumberOfRemovedLiteralsSemantic=0
+%%%mzn-stat: learnedClauseStatisticsNumUnitClausesLearned=0
+%%%mzn-stat: learnedClauseStatisticsAverageLearnedClauseLength=0
+%%%mzn-stat: learnedClauseStatisticsAverageBacktrackAmount=0
+%%%mzn-stat: learnedClauseStatisticsAverageLbd=0
+%%%mzn-stat-end
+%%%mzn-stat: nSolutions=1
+%%%mzn-stat-end
