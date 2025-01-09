@@ -205,7 +205,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
             // If this is false, there is definitely no solution
             if min > value.omax || max < value.omin {
-                warn!("Inconsistency: {:?}", value);
+                debug!("Inconsistency: {:?}", value);
                 // Constraint violation
                 return Err(Inconsistency::Conflict(conjunction_all_vars(
                     &context,
@@ -248,7 +248,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         debug!("Feasible flow: {:?}, Sum lower bounds: {:?}", max_flow, sum_lower_bounds);
 
         if max_flow.capacity < sum_lower_bounds {
-            warn!("Inconsistency: flow {:?}, sum lower bounds: {:?}", max_flow, sum_lower_bounds);
+            debug!("Inconsistency: flow {:?}, sum lower bounds: {:?}", max_flow, sum_lower_bounds);
               return Err(Inconsistency::Conflict(conjunction_all_vars(
                 &context,
                 &self.variables,
@@ -370,7 +370,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                     conjunction_all_vars(&context, &self.variables),
                 )?;
 
-                warn!(
+                debug!(
                     "Removed: x{} = {}",
                     var_index + 1,
                     self.values[val_index].value
