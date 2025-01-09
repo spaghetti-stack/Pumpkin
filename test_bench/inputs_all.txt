@@ -1,0 +1,29 @@
+/home/user/Downloads/mzn-challenge/2024/community-detection/community-detection.mzn /home/user/Downloads/mzn-challenge/2024/community-detection/Zakhary.s12.k3.dzn 3
+/home/user/Downloads/mzn-challenge/2024/community-detection/community-detection.mzn /home/user/Downloads/mzn-challenge/2024/community-detection/Zakhary.s12.k4.dzn 3
+/home/user/Downloads/mzn-challenge/2024/community-detection/community-detection.mzn /home/user/Downloads/mzn-challenge/2024/community-detection/adjourn.s200.k3.dzn 3
+/home/user/Downloads/mzn-challenge/2024/community-detection/community-detection.mzn /home/user/Downloads/mzn-challenge/2024/community-detection/mexican.s26.k4.dzn 3
+/home/user/Downloads/mzn-challenge/2024/community-detection/community-detection.mzn /home/user/Downloads/mzn-challenge/2024/community-detection/Polblogs.s2480.k2.dzn 3
+
+/home/user/Downloads/mzn-challenge/2023/evm-super-compilation/evmopt-generic.mzn /home/user/Downloads/mzn-challenge/2023/evm-super-compilation/BDARUMA_run_code_of_0_block_108_233_1_extended_input.dzn 3
+/home/user/Downloads/mzn-challenge/2023/evm-super-compilation/evmopt-generic.mzn /home/user/Downloads/mzn-challenge/2023/evm-super-compilation/BDARUMA_run_code_of_0_block_284_170_0_input.dzn 3
+/home/user/Downloads/mzn-challenge/2023/evm-super-compilation/evmopt-generic.mzn /home/user/Downloads/mzn-challenge/2023/evm-super-compilation/Kongu_run_code_of_0_block_240_0_input.dzn 3
+/home/user/Downloads/mzn-challenge/2023/evm-super-compilation/evmopt-generic.mzn /home/user/Downloads/mzn-challenge/2023/evm-super-compilation/PlaylinkAirdrop_run_code_of_0_block_216_0_input.dzn 3
+/home/user/Downloads/mzn-challenge/2023/evm-super-compilation/evmopt-generic.mzn /home/user/Downloads/mzn-challenge/2023/evm-super-compilation/isolated_block_6_0_input.dzn 3
+
+/home/user/Downloads/mzn-challenge/2021/physician-scheduling/physician-scheduling.mzn /home/user/Downloads/mzn-challenge/2021/physician-scheduling/instance03_0.34.dzn 3
+/home/user/Downloads/mzn-challenge/2021/physician-scheduling/physician-scheduling.mzn /home/user/Downloads/mzn-challenge/2021/physician-scheduling/instance10-duplicated_0.23.dzn 3
+/home/user/Downloads/mzn-challenge/2021/physician-scheduling/physician-scheduling.mzn /home/user/Downloads/mzn-challenge/2021/physician-scheduling/instance13-duplicated_0.56.dzn 3
+/home/user/Downloads/mzn-challenge/2021/physician-scheduling/physician-scheduling.mzn /home/user/Downloads/mzn-challenge/2021/physician-scheduling/instance17_oneweek_real.dzn 3
+/home/user/Downloads/mzn-challenge/2021/physician-scheduling/physician-scheduling.mzn /home/user/Downloads/mzn-challenge/2021/physician-scheduling/instance18_real.dzn 3
+
+/home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rotating-workforce-scheduling.mzn /home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rws-instance-e-90-s-2.dzn 3
+/home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rotating-workforce-scheduling.mzn /home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rws-instance-e-80-s-1.dzn 3
+/home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rotating-workforce-scheduling.mzn /home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rws-instance-e-30-s-9.dzn 3
+/home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rotating-workforce-scheduling.mzn /home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rws-instance-e-100-s-2.dzn 3
+/home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rotating-workforce-scheduling.mzn /home/user/Downloads/mzn-challenge/2022/rotating-workforce-scheduling/rws-instance-e-25-s-7.dzn 3
+
+/home/user/Downloads/mzn-challenge/2022/vaccine/vaccine.mzn /home/user/Downloads/mzn-challenge/2022/vaccine/v857.dzn 3
+/home/user/Downloads/mzn-challenge/2022/vaccine/vaccine.mzn /home/user/Downloads/mzn-challenge/2022/vaccine/v946.dzn 3
+/home/user/Downloads/mzn-challenge/2022/vaccine/vaccine.mzn /home/user/Downloads/mzn-challenge/2022/vaccine/v11.dzn 3
+/home/user/Downloads/mzn-challenge/2022/vaccine/vaccine.mzn /home/user/Downloads/mzn-challenge/2022/vaccine/v8.dzn 3
+/home/user/Downloads/mzn-challenge/2022/vaccine/vaccine.mzn /home/user/Downloads/mzn-challenge/2022/vaccine/v7.dzn 3
