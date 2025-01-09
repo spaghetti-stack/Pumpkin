@@ -1,16 +1,17 @@
 use std::{cell::RefCell, collections::HashMap};
 
+use fnv::{FnvBuildHasher, FnvHashSet};
 use log::{debug, warn};
 use petgraph::{
     dot::Dot,
-    graph::{DiGraph, NodeIndex},
+    graph::{DiGraph, Edge, NodeIndex},
     prelude::EdgeIndex,
     visit::EdgeRef,
     Graph,
 };
 
 use crate::{
-    basic_types::Inconsistency, engine::{
+    basic_types::{HashSet, Inconsistency}, engine::{
         propagation::{LocalId, Propagator, ReadDomains},
         DomainEvents,
     }, predicates::PropositionalConjunction, propagators::global_cardinality::*, variables::IntegerVariable
@@ -27,7 +28,7 @@ struct GraphData {
     sink: NodeIndex,
     variables_nodes: Vec<NodeIndex>,
     values_nodes: Vec<NodeIndex>,
-    intermediate_edges: Vec<EdgeIndex>,
+    intermediate_edges: HashSet<EdgeIndex>,
 }
 
 #[derive(Clone, Debug)]
@@ -55,7 +56,7 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
             .map(|(i, _)| {
                 graph
                     .borrow_mut()
-                    .add_node(format!("v{}", i + 1).to_owned())
+                    .add_node(format!("x{}", i + 1).to_owned())
             })
             .collect();
 
@@ -64,9 +65,10 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
             .iter()
             .map(|v| graph.borrow_mut().add_node(v.value.to_string()))
             .collect();
+        
 
         // Add from vals to vars if the var has that val in its domain
-        let intermediate_edges: Vec<_> = values_nodes
+        let intermediate_edges: HashSet<_> = values_nodes
             .iter()
             .zip(&self.values.clone())
             .flat_map(|(ival, val)| {
@@ -74,7 +76,11 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
                     .iter()
                     .zip(self.variables.clone())
                     .filter(|(_, var)| context.contains(var, val.value))
-                    .map(|(ivar, _)| graph.borrow_mut().add_edge(*ival, *ivar, (0, 1).into()))
+                    .map(|(ivar, _)| {
+                        let e = graph.borrow_mut().add_edge(*ival, *ivar, (0, 1).into());
+                        //debug!("add egde: {:?} -> {:?}: {:?}", *ival, *ivar, e);
+                        e
+                    })
             })
             .collect();
 
@@ -139,10 +145,13 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
         graph_data: &mut GraphData,
         context: &crate::engine::propagation::PropagationContextMut,
     ) {
+
         let intermediate_edges = std::mem::take(&mut graph_data.intermediate_edges);
-        for edge in intermediate_edges {
-            let _ = graph_data.graph.remove_edge(edge);
-        }
+        
+        // Remove the specified edges using retain_edges
+        // Using remove_edge shifts the indices, causing potential bugs.
+        let edge_set: std::collections::HashSet<EdgeIndex> = intermediate_edges.into_iter().collect();
+        graph_data.graph.retain_edges(|_, edge_index| !edge_set.contains(&edge_index));
 
         let mut intermediate_edges = Vec::new();
         for (ival, val) in graph_data.values_nodes.iter().zip(&self.values) {
@@ -153,7 +162,7 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
             }
         }
 
-        graph_data.intermediate_edges = intermediate_edges;
+        graph_data.intermediate_edges = intermediate_edges.into_iter().collect();
     }
 }
 
@@ -168,7 +177,7 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
                 sink: NodeIndex::default(),
                 variables_nodes: vec![],
                 values_nodes: vec![],
-                intermediate_edges: vec![],
+                intermediate_edges: HashSet::with_hasher(FnvBuildHasher::default()),
             },
         }
     }
@@ -183,20 +192,24 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         &self,
         mut context: crate::engine::propagation::PropagationContextMut,
     ) -> crate::basic_types::PropagationStatusCP {
-        self.variables.iter().for_each(|v| {
-            debug!(
-                "var: u: {:?}, l: {:?}",
-                context.upper_bound(v),
-                context.lower_bound(v)
-            );
-        });
 
-        self.values.iter().for_each(|v| {
-            debug!(
-                "value: v: {:?}, omin: {:?}, omax: {:?}",
-                v.value, v.omin, v.omax
-            );
-        });
+        #[cfg(debug_assertions)]
+        {
+            self.variables.iter().for_each(|v| {
+                debug!(
+                    "var: u: {:?}, l: {:?}",
+                    context.upper_bound(v),
+                    context.lower_bound(v)
+                );
+            });
+    
+            self.values.iter().for_each(|v| {
+                debug!(
+                    "value: v: {:?}, omin: {:?}, omax: {:?}",
+                    v.value, v.omin, v.omax
+                );
+            });
+        }
 
          self.values.iter().try_for_each(|value| {
             let min = min_count(&self.variables, value.value, &context);
@@ -205,7 +218,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
             // If this is false, there is definitely no solution
             if min > value.omax || max < value.omin {
-                warn!("Inconsistency: {:?}", value);
+                debug!("Inconsistency: {:?}", value);
                 // Constraint violation
                 return Err(Inconsistency::Conflict(conjunction_all_vars(
                     &context,
@@ -219,6 +232,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                                 //conjunction_all_vars(&context, &self.variables),
 
         let mut graph_data = self.graph_data.clone();
+
         self.update_graph(&mut graph_data, &context);
 
         self.update_value_edges_feasible_flow(&mut graph_data);
@@ -236,7 +250,11 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 edge.flow_display = flow.capacity;
             });
 
-        debug!("{}", Dot::new(&graph_data.graph));
+
+        #[cfg(debug_assertions)]
+        {
+            debug!("feasible flow: {}", Dot::new(&graph_data.graph));
+        }
 
         // If feasible flow less than sum of lower bounds, then no solution exists
         let sum_lower_bounds: u32 = self
@@ -274,7 +292,11 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 edge.flow_display = flow.capacity;
             });
 
-        debug!("{}", Dot::new(&graph_data.graph));
+
+        #[cfg(debug_assertions)]
+        {
+            debug!("max flow {}", Dot::new(&graph_data.graph));
+        }
 
         // Find maximum flow with lower bounds
 
@@ -326,7 +348,11 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             }
         }
 
-        debug!("{}", Dot::new(&residual_graph));
+
+        #[cfg(debug_assertions)]
+        {
+            debug!("residual graph: {}", Dot::new(&residual_graph));
+        }
 
         let scc = petgraph::algo::tarjan_scc(&residual_graph);
 
@@ -336,6 +362,8 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 let _ = node_to_scc.insert(node, scc_index);
             }
         }
+
+        debug!("scc: {:?}", scc);
 
         // Example: Check if two nodes are in different SCCs
         let are_different =
@@ -430,5 +458,74 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) {
         debug!("notify backtrack");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{engine::test_solver::TestSolver, propagators::global_cardinality::Values};
+
+    use super::GCCLowerUpper;
+
+
+    #[test]
+    fn test_propagation(){
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut solver = TestSolver::default();
+
+        let x_a = solver.new_variable(1, 2);
+        let x_b = solver.new_variable(1, 2);
+        let x_c = solver.new_variable(1, 4);
+        let x_d = solver.new_variable(1, 4);
+
+        let propagator = solver.new_propagator(GCCLowerUpper::new(vec![x_a, x_b, x_c, x_d].into(), vec![
+            Values {
+                value: 1,
+                omin: 0,
+                omax: 1,
+            },
+            Values {
+                value: 2,
+                omin: 0,
+                omax: 1,
+            },
+            Values {
+                value: 3,
+                omin: 0,
+                omax: 1,
+            },
+            Values {
+                value: 4,
+                omin: 0,
+                omax: 1,
+            }
+        ].into())).expect("No empty domains");
+
+        //let r = solver.propagate(propagator);
+
+        assert!(solver.propagate_until_fixed_point(propagator).is_ok());
+
+        assert!(!solver.contains(x_c, 1));
+        assert!(!solver.contains(x_c, 2));
+        assert!(!solver.contains(x_d, 1));
+        assert!(!solver.contains(x_d, 2));
+
+        assert!(solver.contains(x_d, 3));
+        assert!(solver.contains(x_d, 4));
+        assert!(solver.contains(x_c, 3));
+        assert!(solver.contains(x_c, 4));
+        assert!(solver.contains(x_a, 1));
+        assert!(solver.contains(x_a, 2));
+        assert!(solver.contains(x_b, 1));
+        assert!(solver.contains(x_b, 2));
+
+
+
+
+
+
+
+
+
     }
 }
