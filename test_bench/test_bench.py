@@ -47,7 +47,9 @@ def run_command(name, command, output_file, timeout=timeout_secs+60):
             process = subprocess.Popen(command_parts, env=env, stderr=f, stdout=f)
             
             try:
-                process.wait(timeout=timeout)  # Wait for process with a timeout
+                # Removed timeout for now. Instead it is handles by Minizinc.
+                #process.wait(timeout=timeout)  # Wait for process with a timeout
+                process.wait()
             except subprocess.TimeoutExpired:
                 print(f"Command '{command}' timed out after {timeout} seconds.")
                 process.terminate()  # Gracefully terminate the process
@@ -130,6 +132,10 @@ def main():
         for line in file:
             # Strip the line of leading/trailing spaces and split it
             parts = line.strip().split()
+
+            # If line starts with #, skip it
+            if not parts or parts[0].startswith("#"):
+                continue
             
             # Ensure there is at least one part, and assign "" if there is no second part
             if len(parts) == 1:
