@@ -14,7 +14,7 @@ use crate::{
     basic_types::{HashSet, Inconsistency}, engine::{
         propagation::{LocalId, Propagator, ReadDomains},
         DomainEvents,
-    }, predicates::PropositionalConjunction, propagators::global_cardinality::*, variables::IntegerVariable
+    }, predicate, predicates::PropositionalConjunction, propagators::global_cardinality::*, variables::{DomainId, IntegerVariable}
 };
 
 use super::{ford_fulkerson_lower_bounds::BoundedCapacity, Values};
@@ -392,17 +392,50 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             if curr_edge.weight().flow_display == 0 && are_different(ivar, ival) {
                 inconsistent_edges.push(curr_edge);
 
-                context.remove(
-                    &self.variables[var_index],
-                    self.values[val_index].value,
-                    conjunction_all_vars(&context, &self.variables),
-                )?;
+                let mut expl = Vec::new();
+                let mut expl2 = Vec::new();
+                graph_data.variables_nodes.iter().zip(self.variables.clone()).enumerate().for_each( |(ic, (vari_c,var_c)) | {
+                    
+                    graph_data.values_nodes.iter().zip(self.values.clone()).for_each(|(vali_c, val_c)| {
 
+                        let var_index_c = graph_data
+                        .variables_nodes
+                        .iter()
+                        .position(|vn| *vn == *vari_c)
+                        .unwrap();
+        
+                        let val_index_c = graph_data
+                            .values_nodes
+                            .iter()
+                            .position(|vn| *vn == *vali_c)
+                            .unwrap();
+
+                        if *vari_c != ivar && !are_different(*vari_c, ivar) && are_different(ivar, *vali_c) {
+                            expl.push((vari_c.clone(), vali_c));
+                            expl2.push(predicate!( self.variables[val_index_c] != self.values[val_index_c].value ));
+                        }
+                    });
+                });
+
+
+
+                warn!("expl: {:?}", expl);
+                let expl2: PropositionalConjunction = expl2.into();
+                warn!("expl2: {:?}", expl2);
+                warn!("conj all vars: {:?}", conjunction_all_vars(&context, &self.variables));
+                
                 debug!(
                     "Removed: x{} = {}",
                     var_index + 1,
                     self.values[val_index].value
-                )
+                );
+
+                context.remove(
+                    &self.variables[var_index],
+                    self.values[val_index].value,
+                    //conjunction_all_vars(&context, &self.variables),
+                    expl2,
+                )?;
             } else {
                 debug!(
                     "Kept: x{} = {}",
@@ -434,7 +467,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             );
         });
 
-        self.graph_data = self.construct_graph(&context);
+        self.graph_data = self.construct_graph(context);
 
         // Register for backtrack events if needed with:
         //context.register_for_backtrack_events(var, domain_events, local_id);
@@ -518,14 +551,44 @@ mod tests {
         assert!(solver.contains(x_a, 2));
         assert!(solver.contains(x_b, 1));
         assert!(solver.contains(x_b, 2));
+    }
 
+    #[test]
+    fn test_propagation_2(){
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut solver = TestSolver::default();
 
+        let x_1 = solver.new_variable(1, 2);
+        let x_2 = solver.new_variable(2, 3);
+        let x_3 = solver.new_variable(2, 4);
 
+        let propagator = solver.new_propagator(GCCLowerUpper::new(vec![x_1, x_2, x_3].into(), vec![
+            Values {
+                value: 1,
+                omin: 0,
+                omax: 1,
+            },
+            Values {
+                value: 2,
+                omin: 0,
+                omax: 1,
+            },
+            Values {
+                value: 3,
+                omin: 0,
+                omax: 1,
+            },
+            Values {
+                value: 4,
+                omin: 0,
+                omax: 1,
+            }
+        ].into())).expect("No empty domains");
 
+        solver.remove(x_3, 4);
 
+        //let r = solver.propagate(propagator);
 
-
-
-
+        assert!(solver.propagate_until_fixed_point(propagator).is_ok());
     }
 }
