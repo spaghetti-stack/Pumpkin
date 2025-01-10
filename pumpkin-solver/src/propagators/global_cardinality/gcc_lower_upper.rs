@@ -365,7 +365,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
         debug!("scc: {:?}", scc);
 
-        // Example: Check if two nodes are in different SCCs
+        // Check if two nodes are in different SCCs
         let are_different =
             |node1: NodeIndex, node2: NodeIndex| node_to_scc.get(&node1) != node_to_scc.get(&node2);
 
@@ -392,7 +392,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             if curr_edge.weight().flow_display == 0 && are_different(ivar, ival) {
                 inconsistent_edges.push(curr_edge);
 
-                let mut expl = Vec::new();
+                /* let mut expl = Vec::new();
                 let mut expl2 = Vec::new();
                 graph_data.variables_nodes.iter().zip(self.variables.clone()).enumerate().for_each( |(ic, (vari_c,var_c)) | {
                     
@@ -415,11 +415,11 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                             expl2.push(predicate!( self.variables[val_index_c] != self.values[val_index_c].value ));
                         }
                     });
-                });
+                }); */
 
 
 
-                warn!("expl: {:?}", expl);
+                /* warn!("expl: {:?}", expl);
                 let expl2: PropositionalConjunction = expl2.into();
                 warn!("expl2: {:?}", expl2);
                 warn!("conj all vars: {:?}", conjunction_all_vars(&context, &self.variables));
@@ -428,13 +428,13 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                     "Removed: x{} = {}",
                     var_index + 1,
                     self.values[val_index].value
-                );
+                ); */
 
                 context.remove(
                     &self.variables[var_index],
                     self.values[val_index].value,
-                    //conjunction_all_vars(&context, &self.variables),
-                    expl2,
+                    conjunction_all_vars(&context, &self.variables),
+                    //expl2,
                 )?;
             } else {
                 debug!(
