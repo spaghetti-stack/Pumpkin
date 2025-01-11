@@ -244,19 +244,18 @@ def plot_benchmarks(avg_values, abs_values, title='Normalized Benchmark Values b
         for technique in techniques:
             grouped_data_abs[(problem, data_file)].append(tech_values.get(technique, 0))
 
-    # Plotting
-    problems = list(grouped_data.keys())
+    # Sort problems alphabetically by their label
+    problems = sorted(grouped_data.keys(), key=lambda x: f"{x[0]}, {x[1]}")
     abbreviated_problems = [f"{abbreviate_text(problem, max_length=10)}, {abbreviate_text(data_file, max_length=20)}" for problem, data_file in problems]
     x = range(len(problems))
     bar_width = 0.2
 
     plt.figure(figsize=(12, 6))
-    
 
     # Draw bars and annotate values
     for i, technique in enumerate(techniques):
-        values = [group[i] for group in grouped_data.values()]
-        values_abs = [group[i] for group in grouped_data_abs.values()]
+        values = [grouped_data[(problem, data_file)][i] for problem, data_file in problems]
+        values_abs = [grouped_data_abs[(problem, data_file)][i] for problem, data_file in problems]
         bar_positions = [pos + i * bar_width for pos in x]
         plt.bar(
             bar_positions,
@@ -266,24 +265,12 @@ def plot_benchmarks(avg_values, abs_values, title='Normalized Benchmark Values b
             color=colors[technique]
         )
 
-        #get axis
-        ax = plt.gca()
-
         # Annotate bars with values
         for pos, value, value_abs in zip(bar_positions, values, values_abs):
-
             if (technique == "regin" or technique == "basic_filter") and value > 0.01:
-                plt.text(pos, value + 0.15 , f"{value:.2f}", ha='center', va='bottom', fontsize=5)
-            
+                plt.text(pos, value + 0.15, f"{value:.2f}", ha='center', va='bottom', fontsize=5)
             if value_abs > 0.1:
                 plt.text(pos, 0.01, f"{value_abs:.1f}", ha='center', va='bottom', fontsize=5, rotation=90, color='black', fontweight='bold')
-
-            #else:
-                #plt.text(pos, value + 0.05, f"{value:.2f}\n({value_abs:.1f})", ha='center', va='bottom', fontsize=5)
-
-        #if technique == "decomp":
-        #    for pos, value, value_abs in zip(bar_positions, values, values_abs):
-        #        plt.text((pos / (max(bar_positions) * 1.12)) + 0.05, - 0.05, f"{value_abs:.1f}", ha='center', va='bottom', fontsize=6, transform=ax.transAxes)
 
     # Draw a baseline for "decomp"
     decomp_positions = [pos + bar_width * 0 for pos in x]  # First position corresponds to "decomp"
@@ -348,7 +335,8 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
         for technique in techniques:
             grouped_data_abs_conflict_size[(problem, data_file)].append(tech_conflict_sizes.get(technique, 0))
 
-    problems = list(grouped_data_lbd.keys())
+    # Sort problems alphabetically by their label
+    problems = sorted(grouped_data_lbd.keys(), key=lambda x: f"{x[0]}, {x[1]}")
     abbreviated_problems = [f"{abbreviate_text(problem, max_length=10)}, {abbreviate_text(data_file, max_length=20)}" for problem, data_file in problems]
     x = range(len(problems))
     bar_width = 0.2
@@ -360,8 +348,8 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
 
     # Plot LBD scatter plot
     for i, technique in enumerate(techniques):
-        lbds = [group[i] for group in grouped_data_lbd.values()]
-        lbds_abs = [group[i] for group in grouped_data_abs_lbd.values()]
+        lbds = [grouped_data_lbd[(problem, data_file)][i] for problem, data_file in problems]
+        lbds_abs = [grouped_data_abs_lbd[(problem, data_file)][i] for problem, data_file in problems]
         x_positions = [pos + i * bar_width for pos in x]
         axs[0].scatter(
             x_positions,
@@ -393,8 +381,8 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
 
     # Plot learned clause length scatter plot
     for i, technique in enumerate(techniques):
-        learned_clause_lengths = [group[i] for group in grouped_data_learned_clause_length.values()]
-        learned_clause_lengths_abs = [group[i] for group in grouped_data_abs_learned_clause_length.values()]
+        learned_clause_lengths = [grouped_data_learned_clause_length[(problem, data_file)][i] for problem, data_file in problems]
+        learned_clause_lengths_abs = [grouped_data_abs_learned_clause_length[(problem, data_file)][i] for problem, data_file in problems]
         x_positions = [pos + i * bar_width for pos in x]
         axs[1].scatter(
             x_positions,
@@ -426,8 +414,8 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
 
     # Plot conflict size scatter plot
     for i, technique in enumerate(techniques):
-        conflict_sizes = [group[i] for group in grouped_data_conflict_size.values()]
-        conflict_sizes_abs = [group[i] for group in grouped_data_abs_conflict_size.values()]
+        conflict_sizes = [grouped_data_conflict_size[(problem, data_file)][i] for problem, data_file in problems]
+        conflict_sizes_abs = [grouped_data_abs_conflict_size[(problem, data_file)][i] for problem, data_file in problems]
         x_positions = [pos + i * bar_width for pos in x]
         axs[2].scatter(
             x_positions,
@@ -523,7 +511,8 @@ def plot_all_statistics_bar(avg_runtimes, avg_lbds, avg_learned_clause_lengths, 
         for technique in techniques:
             grouped_data_abs_conflict_size[(problem, data_file)].append(tech_conflict_sizes.get(technique, 0))
 
-    problems = list(grouped_data_runtime.keys())
+    # Sort problems alphabetically by their label
+    problems = sorted(grouped_data_runtime.keys(), key=lambda x: f"{x[0]}, {x[1]}")
     abbreviated_problems = [f"{abbreviate_text(problem, max_length=10)}, {abbreviate_text(data_file, max_length=20)}" for problem, data_file in problems]
     x = range(len(problems))
     bar_width = 0.2
@@ -532,8 +521,8 @@ def plot_all_statistics_bar(avg_runtimes, avg_lbds, avg_learned_clause_lengths, 
 
     # Plot runtime bar chart
     for i, technique in enumerate(techniques):
-        runtimes = [group[i] for group in grouped_data_runtime.values()]
-        runtimes_abs = [group[i] for group in grouped_data_abs_runtime.values()]
+        runtimes = [grouped_data_runtime[(problem, data_file)][i] for problem, data_file in problems]
+        runtimes_abs = [grouped_data_abs_runtime[(problem, data_file)][i] for problem, data_file in problems]
         bar_positions = [pos + i * bar_width for pos in x]
         axs[0].bar(
             bar_positions,
@@ -559,8 +548,8 @@ def plot_all_statistics_bar(avg_runtimes, avg_lbds, avg_learned_clause_lengths, 
 
     # Plot LBD bar chart
     for i, technique in enumerate(techniques):
-        lbds = [group[i] for group in grouped_data_lbd.values()]
-        lbds_abs = [group[i] for group in grouped_data_abs_lbd.values()]
+        lbds = [grouped_data_lbd[(problem, data_file)][i] for problem, data_file in problems]
+        lbds_abs = [grouped_data_abs_lbd[(problem, data_file)][i] for problem, data_file in problems]
         bar_positions = [pos + i * bar_width for pos in x]
         axs[1].bar(
             bar_positions,
@@ -585,8 +574,8 @@ def plot_all_statistics_bar(avg_runtimes, avg_lbds, avg_learned_clause_lengths, 
 
     # Plot learned clause length bar chart
     for i, technique in enumerate(techniques):
-        learned_clause_lengths = [group[i] for group in grouped_data_learned_clause_length.values()]
-        learned_clause_lengths_abs = [group[i] for group in grouped_data_abs_learned_clause_length.values()]
+        learned_clause_lengths = [grouped_data_learned_clause_length[(problem, data_file)][i] for problem, data_file in problems]
+        learned_clause_lengths_abs = [grouped_data_abs_learned_clause_length[(problem, data_file)][i] for problem, data_file in problems]
         bar_positions = [pos + i * bar_width for pos in x]
         axs[2].bar(
             bar_positions,
@@ -611,8 +600,8 @@ def plot_all_statistics_bar(avg_runtimes, avg_lbds, avg_learned_clause_lengths, 
 
     # Plot conflict size bar chart
     for i, technique in enumerate(techniques):
-        conflict_sizes = [group[i] for group in grouped_data_conflict_size.values()]
-        conflict_sizes_abs = [group[i] for group in grouped_data_abs_conflict_size.values()]
+        conflict_sizes = [grouped_data_conflict_size[(problem, data_file)][i] for problem, data_file in problems]
+        conflict_sizes_abs = [grouped_data_abs_conflict_size[(problem, data_file)][i] for problem, data_file in problems]
         bar_positions = [pos + i * bar_width for pos in x]
         axs[3].bar(
             bar_positions,
@@ -642,6 +631,114 @@ def plot_all_statistics_bar(avg_runtimes, avg_lbds, avg_learned_clause_lengths, 
     fig.tight_layout()
     plt.show()
 
+def plot_runtime_and_objective(avg_runtimes, avg_objectives, abs_runtimes, abs_objectives):
+    """
+    Creates a combined bar plot of runtime and objective values by technique.
+
+    Args:
+        avg_runtimes (dict): Normalized runtime values for plotting.
+        avg_objectives (dict): Normalized objective values for plotting.
+        abs_runtimes (dict): Absolute runtime values for annotation.
+        abs_objectives (dict): Absolute objective values for annotation.
+    """
+    techniques = ["decomp", "regin", "basic_filter"]  # Ensure "decomp" is always first
+    colors = {"regin": "steelblue", "basic_filter": "lightblue", "decomp": "gainsboro"}
+
+    # Prepare data for plotting
+    grouped_data_runtime = defaultdict(list)
+    grouped_data_objective = defaultdict(list)
+    grouped_data_abs_runtime = defaultdict(list)
+    grouped_data_abs_objective = defaultdict(list)
+
+    for (problem, data_file), tech_runtimes in avg_runtimes.items():
+        for technique in techniques:
+            grouped_data_runtime[(problem, data_file)].append(tech_runtimes.get(technique, 0))
+
+    for (problem, data_file), tech_objectives in avg_objectives.items():
+        for technique in techniques:
+            grouped_data_objective[(problem, data_file)].append(tech_objectives.get(technique, 0))
+
+    for (problem, data_file), tech_runtimes in abs_runtimes.items():
+        for technique in techniques:
+            grouped_data_abs_runtime[(problem, data_file)].append(tech_runtimes.get(technique, 0))
+
+    for (problem, data_file), tech_objectives in abs_objectives.items():
+        for technique in techniques:
+            grouped_data_abs_objective[(problem, data_file)].append(tech_objectives.get(technique, 0))
+
+    # Sort problems alphabetically by their label
+    problems = sorted(grouped_data_runtime.keys(), key=lambda x: f"{x[0]}, {x[1]}")
+    abbreviated_problems = [f"{abbreviate_text(problem, max_length=10)}, {abbreviate_text(data_file, max_length=20)}" for problem, data_file in problems]
+    x = range(len(problems))
+    bar_width = 0.2
+
+    fig, axs = plt.subplots(2, 1, figsize=(12, 12), sharex=True, gridspec_kw={'height_ratios': [1, 1]})
+
+    # Plot runtime bar chart
+    for i, technique in enumerate(techniques):
+        runtimes = [grouped_data_runtime[(problem, data_file)][i] for problem, data_file in problems]
+        runtimes_abs = [grouped_data_abs_runtime[(problem, data_file)][i] for problem, data_file in problems]
+        bar_positions = [pos + i * bar_width for pos in x]
+        axs[0].bar(
+            bar_positions,
+            runtimes,
+            bar_width,
+            label=technique,
+            color=colors[technique]
+        )
+        # Annotate bars with runtimes
+        for pos, runtime, abs_runtime in zip(bar_positions, runtimes, runtimes_abs):
+            if (technique == "regin" or technique == "basic_filter") and runtime > 0.01:
+                axs[0].text(pos, runtime + 0.15 , f"{runtime:.2f}", ha='center', va='bottom', fontsize=5)
+            
+            if abs_runtime > 0.1:
+                axs[0].text(pos, 0.01, f"{abs_runtime:.1f}", ha='center', va='bottom', fontsize=5, rotation=90, color='black', fontweight='bold')
+
+
+    # Draw a baseline for "decomp"
+    decomp_positions = [pos + bar_width * 0 for pos in x]  # First position corresponds to "decomp"
+    axs[0].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
+
+    axs[0].set_ylabel('Normalized Runtime (Relative to Decomp)')
+    axs[0].set_title('Normalized Benchmark Runtimes by Technique')
+    axs[0].legend(title="Technique")
+    axs[0].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
+
+    # Plot objective bar chart
+    for i, technique in enumerate(techniques):
+        objectives = [grouped_data_objective[(problem, data_file)][i] for problem, data_file in problems]
+        objectives_abs = [grouped_data_abs_objective[(problem, data_file)][i] for problem, data_file in problems]
+        bar_positions = [pos + i * bar_width for pos in x]
+        axs[1].bar(
+            bar_positions,
+            objectives,
+            bar_width,
+            label=technique,
+            color=colors[technique]
+        )
+        # Annotate bars with objectives
+        for pos, objective, abs_objective in zip(bar_positions, objectives, objectives_abs):
+            if (technique == "regin" or technique == "basic_filter") and objective > 0.01:
+                axs[1].text(pos, objective + 0.15 , f"{objective:.2f}", ha='center', va='bottom', fontsize=5)
+            
+            if abs_objective > 0.1:
+                axs[1].text(pos, 0.01, f"{abs_objective:.1f}", ha='center', va='bottom', fontsize=5, rotation=90, color='black', fontweight='bold')
+
+    # Draw a baseline for "decomp" on objective axis
+    axs[1].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
+
+    axs[1].set_ylabel('Normalized Objective Value (Relative to Decomp)')
+    axs[1].set_title('Normalized Benchmark Objective Values by Technique')
+    axs[1].legend(title="Technique")
+    axs[1].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
+
+    axs[1].set_xlabel('Problems (Problem, Data File)')
+    axs[1].set_xticks([pos + bar_width for pos in x])
+    axs[1].set_xticklabels(abbreviated_problems, rotation=45, ha='right')
+
+    fig.tight_layout()
+    plt.show()
+
 # %%
 # Replace with your list of directories containing benchmark files
 #directories = ["output_evm_super_compilation/", "output_community_detection/", "output_physician_scheduling/", "output_rotating_workforce_scheduling/", "output_vaccine/"]
@@ -650,11 +747,14 @@ directories = ["output_all-new/" ]
 
 avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes = parse_benchmark_dirs(directories)
 normalized_runtimes = normalize(avg_runtimes)
+normalized_objectives = normalize(avg_objectives)
 normalized_lbds = normalize(avg_lbds)
 normalized_learned_clause_lengths = normalize(avg_learned_clause_lengths)
 normalized_conflict_sizes = normalize(avg_conflict_sizes)
 
-plot_benchmarks(normalized_runtimes, avg_runtimes, title='Normalized Benchmark Runtimes by Technique')
+plot_runtime_and_objective(normalized_runtimes, normalized_objectives, avg_runtimes, avg_objectives)
+#plot_benchmarks(normalized_runtimes, avg_runtimes, title='Normalized Benchmark Runtimes by Technique')
+#plot_objective_values(normalized_objectives, avg_objectives)
 #plot_benchmarks(normalized_lbds, avg_lbds, title='Normalized Benchmark LBD by Technique')
 #plot_benchmarks(normalized_learned_clause_lengths, avg_learned_clause_lengths, title='Normalized Benchmark Learned Clause Length by Technique')
 #plot_benchmarks(normalized_conflict_sizes, avg_conflict_sizes, title='Normalized Benchmark Conflict Size by Technique')
