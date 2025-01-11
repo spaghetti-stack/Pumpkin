@@ -6,6 +6,8 @@ from collections import defaultdict
 
 #%matplotlib qtagg
 
+MAX_RUNTIME = 20*60; # 20 minutes
+
 # %%
 def extract_runtime(filepath, ignore_unkown_status=False):
     """
@@ -201,7 +203,7 @@ def normalize(avg_values):
     for (problem, data_file), tech_values in avg_values.items():
         decomp_value = tech_values.get("decomp", 0)
         normalized_values[(problem, data_file)] = {
-            tech: (value / decomp_value if decomp_value > 0 else value) for tech, value in tech_values.items()
+            tech: (value / decomp_value if decomp_value > 0 else value / MAX_RUNTIME) for tech, value in tech_values.items()
         }
 
     return normalized_values
@@ -270,8 +272,12 @@ def plot_benchmarks(avg_values, abs_values, title='Normalized Benchmark Values b
         # Annotate bars with values
         for pos, value, value_abs in zip(bar_positions, values, values_abs):
 
-            if technique == "regin" or technique == "basic_filter":
-                plt.text(pos, value + 0.1, f"{value:.2f}\n({value_abs:.1f})", ha='center', va='bottom', fontsize=5)
+            if (technique == "regin" or technique == "basic_filter") and value > 0.01:
+                plt.text(pos, value + 0.15 , f"{value:.2f}", ha='center', va='bottom', fontsize=5)
+            
+            if value_abs > 0.1:
+                plt.text(pos, 0.01, f"{value_abs:.1f}", ha='center', va='bottom', fontsize=5, rotation=90, color='black', fontweight='bold')
+
             #else:
                 #plt.text(pos, value + 0.05, f"{value:.2f}\n({value_abs:.1f})", ha='center', va='bottom', fontsize=5)
 
@@ -288,13 +294,13 @@ def plot_benchmarks(avg_values, abs_values, title='Normalized Benchmark Values b
     plt.title(title)
     plt.xticks([pos + bar_width for pos in x], abbreviated_problems, rotation=45, ha='right')
     plt.legend(title="Technique")
-    plt.yscale('log')  # Set y-axis to logarithmic scale
+    plt.yscale('symlog')  # Set y-axis to symmetric logarithmic scale
     plt.tight_layout()
     plt.show()
 
 def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes, abs_runtimes, abs_lbds, abs_learned_clause_lengths, abs_conflict_sizes):
     """
-    Creates scatter plots of benchmark statistics (runtime, LBD, learned clause length, and conflict size) by technique.
+    Creates scatter plots of benchmark statistics (LBD, learned clause length, and conflict size) by technique.
 
     Args:
         avg_runtimes (dict): Normalized runtime values for plotting.
@@ -309,6 +315,171 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
     techniques = ["decomp", "regin", "basic_filter"]  # Ensure "decomp" is always first
     colors = {"regin": "steelblue", "basic_filter": "lightblue", "decomp": "gainsboro"}
     markers = {"regin": "o", "basic_filter": "s", "decomp": "D"}  # Different markers for techniques
+
+    # Prepare data for plotting
+    grouped_data_lbd = defaultdict(list)
+    grouped_data_learned_clause_length = defaultdict(list)
+    grouped_data_conflict_size = defaultdict(list)
+    grouped_data_abs_lbd = defaultdict(list)
+    grouped_data_abs_learned_clause_length = defaultdict(list)
+    grouped_data_abs_conflict_size = defaultdict(list)
+
+    for (problem, data_file), tech_lbds in avg_lbds.items():
+        for technique in techniques:
+            grouped_data_lbd[(problem, data_file)].append(tech_lbds.get(technique, 0))
+
+    for (problem, data_file), tech_learned_clause_lengths in avg_learned_clause_lengths.items():
+        for technique in techniques:
+            grouped_data_learned_clause_length[(problem, data_file)].append(tech_learned_clause_lengths.get(technique, 0))
+
+    for (problem, data_file), tech_conflict_sizes in avg_conflict_sizes.items():
+        for technique in techniques:
+            grouped_data_conflict_size[(problem, data_file)].append(tech_conflict_sizes.get(technique, 0))
+
+    for (problem, data_file), tech_lbds in abs_lbds.items():
+        for technique in techniques:
+            grouped_data_abs_lbd[(problem, data_file)].append(tech_lbds.get(technique, 0))
+
+    for (problem, data_file), tech_learned_clause_lengths in abs_learned_clause_lengths.items():
+        for technique in techniques:
+            grouped_data_abs_learned_clause_length[(problem, data_file)].append(tech_learned_clause_lengths.get(technique, 0))
+
+    for (problem, data_file), tech_conflict_sizes in abs_conflict_sizes.items():
+        for technique in techniques:
+            grouped_data_abs_conflict_size[(problem, data_file)].append(tech_conflict_sizes.get(technique, 0))
+
+    problems = list(grouped_data_lbd.keys())
+    abbreviated_problems = [f"{abbreviate_text(problem, max_length=10)}, {abbreviate_text(data_file, max_length=20)}" for problem, data_file in problems]
+    x = range(len(problems))
+    bar_width = 0.2
+
+    fig, axs = plt.subplots(3, 1, figsize=(12, 12), sharex=True, gridspec_kw={'height_ratios': [1, 1, 1]})
+
+    # Define decomp_positions
+    decomp_positions = [pos + bar_width * 0 for pos in x]  # First position corresponds to "decomp"
+
+    # Plot LBD scatter plot
+    for i, technique in enumerate(techniques):
+        lbds = [group[i] for group in grouped_data_lbd.values()]
+        lbds_abs = [group[i] for group in grouped_data_abs_lbd.values()]
+        x_positions = [pos + i * bar_width for pos in x]
+        axs[0].scatter(
+            x_positions,
+            lbds,
+            label=f'{technique} (LBD)',
+            color=colors[technique],
+            marker=markers[technique],
+            edgecolor="black",
+            s=25  # Marker size
+        )
+        # Annotate points with LBDs
+        for pos, lbd, abs_lbd in zip(x_positions, lbds, lbds_abs):
+            if (technique == "regin" or technique == "basic_filter") and lbd > 0.01:
+                axs[0].text(pos, lbd + 0.1, f"{lbd:.2f}", ha='center', va='bottom', fontsize=6)
+            if technique == "decomp":  # Additional annotation for "decomp"
+                axs[0].text(pos, 0, f"{abs_lbd:.1f}", ha='center', va='top', fontsize=6)
+
+        # Draw lines connecting points
+        if technique in ["regin", "basic_filter"]:
+            axs[0].plot(x_positions, lbds, color=colors[technique], linestyle='-', linewidth=1)
+
+    # Draw a baseline for "decomp" on LBD axis
+    axs[0].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
+
+    axs[0].set_ylabel('Normalized LBD (Relative to Decomp)')
+    axs[0].set_title('Normalized Benchmark LBD by Technique')
+    axs[0].legend(title="Technique")
+    axs[0].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
+
+    # Plot learned clause length scatter plot
+    for i, technique in enumerate(techniques):
+        learned_clause_lengths = [group[i] for group in grouped_data_learned_clause_length.values()]
+        learned_clause_lengths_abs = [group[i] for group in grouped_data_abs_learned_clause_length.values()]
+        x_positions = [pos + i * bar_width for pos in x]
+        axs[1].scatter(
+            x_positions,
+            learned_clause_lengths,
+            label=f'{technique} (Learned Clause Length)',
+            color=colors[technique],
+            marker=markers[technique],
+            edgecolor="black",
+            s=25  # Marker size
+        )
+        # Annotate points with learned clause lengths
+        for pos, length, abs_length in zip(x_positions, learned_clause_lengths, learned_clause_lengths_abs):
+            if (technique == "regin" or technique == "basic_filter") and length > 0.01:
+                axs[1].text(pos, length + 0.1, f"{length:.2f}", ha='center', va='bottom', fontsize=6)
+            if technique == "decomp":  # Additional annotation for "decomp"
+                axs[1].text(pos, 0, f"{abs_length:.1f}", ha='center', va='top', fontsize=6)
+
+        # Draw lines connecting points
+        if technique in ["regin", "basic_filter"]:
+            axs[1].plot(x_positions, learned_clause_lengths, color=colors[technique], linestyle='-', linewidth=1)
+
+    # Draw a baseline for "decomp" on learned clause length axis
+    axs[1].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
+
+    axs[1].set_ylabel('Normalized Learned Clause Length (Relative to Decomp)')
+    axs[1].set_title('Normalized Benchmark Learned Clause Length by Technique')
+    axs[1].legend(title="Technique")
+    axs[1].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
+
+    # Plot conflict size scatter plot
+    for i, technique in enumerate(techniques):
+        conflict_sizes = [group[i] for group in grouped_data_conflict_size.values()]
+        conflict_sizes_abs = [group[i] for group in grouped_data_abs_conflict_size.values()]
+        x_positions = [pos + i * bar_width for pos in x]
+        axs[2].scatter(
+            x_positions,
+            conflict_sizes,
+            label=f'{technique} (Conflict Size)',
+            color=colors[technique],
+            marker=markers[technique],
+            edgecolor="black",
+            s=25  # Marker size
+        )
+        # Annotate points with conflict sizes
+        for pos, size, abs_size in zip(x_positions, conflict_sizes, conflict_sizes_abs):
+            if (technique == "regin" or technique == "basic_filter") and size > 0.01:
+                axs[2].text(pos, size + 0.1, f"{size:.2f}", ha='center', va='bottom', fontsize=6)
+            if technique == "decomp":  # Additional annotation for "decomp"
+                axs[2].text(pos, 0, f"{abs_size:.1f}", ha='center', va='top', fontsize=6)
+
+        # Draw lines connecting points
+        if technique in ["regin", "basic_filter"]:
+            axs[2].plot(x_positions, conflict_sizes, color=colors[technique], linestyle='-', linewidth=1)
+
+    # Draw a baseline for "decomp" on conflict size axis
+    axs[2].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
+
+    axs[2].set_xlabel('Problems (Problem, Data File)')
+    axs[2].set_ylabel('Normalized Conflict Size (Relative to Decomp)')
+    axs[2].set_title('Normalized Benchmark Conflict Size by Technique')
+    axs[2].legend(title="Technique")
+    axs[2].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
+
+    axs[0].set_xticks([pos + bar_width for pos in x])
+    axs[2].set_xticklabels(abbreviated_problems, rotation=45, ha='right')
+
+    fig.tight_layout()
+    plt.show()
+
+def plot_all_statistics_bar(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes, abs_runtimes, abs_lbds, abs_learned_clause_lengths, abs_conflict_sizes):
+    """
+    Creates bar plots of benchmark statistics (runtime, LBD, learned clause length, and conflict size) by technique.
+
+    Args:
+        avg_runtimes (dict): Normalized runtime values for plotting.
+        avg_lbds (dict): Normalized LBD values for plotting.
+        avg_learned_clause_lengths (dict): Normalized learned clause length values for plotting.
+        avg_conflict_sizes (dict): Normalized conflict size values for plotting.
+        abs_runtimes (dict): Absolute runtime values for annotation.
+        abs_lbds (dict): Absolute LBD values for annotation.
+        abs_learned_clause_lengths (dict): Absolute learned clause length values for annotation.
+        abs_conflict_sizes (dict): Absolute conflict size values for annotation.
+    """
+    techniques = ["decomp", "regin", "basic_filter"]  # Ensure "decomp" is always first
+    colors = {"regin": "steelblue", "basic_filter": "lightblue", "decomp": "gainsboro"}
 
     # Prepare data for plotting
     grouped_data_runtime = defaultdict(list)
@@ -359,25 +530,23 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
 
     fig, axs = plt.subplots(4, 1, figsize=(12, 16), sharex=True, gridspec_kw={'height_ratios': [1, 1, 1, 1]})
 
-    # Plot runtime scatter plot
+    # Plot runtime bar chart
     for i, technique in enumerate(techniques):
         runtimes = [group[i] for group in grouped_data_runtime.values()]
         runtimes_abs = [group[i] for group in grouped_data_abs_runtime.values()]
-        x_positions = [pos + i * bar_width for pos in x]
-        axs[0].scatter(
-            x_positions,
+        bar_positions = [pos + i * bar_width for pos in x]
+        axs[0].bar(
+            bar_positions,
             runtimes,
-            label=f'{technique} (Runtime)',
-            color=colors[technique],
-            marker=markers[technique],
-            edgecolor="black",
-            s=100  # Marker size
+            bar_width,
+            label=technique,
+            color=colors[technique]
         )
-        # Annotate points with runtimes
-        for pos, runtime, abs_runtime in zip(x_positions, runtimes, runtimes_abs):
+        # Annotate bars with runtimes
+        for pos, runtime, abs_runtime in zip(bar_positions, runtimes, runtimes_abs):
             axs[0].text(pos, runtime + 0.05, f"{runtime:.2f}", ha='center', va='bottom', fontsize=6)
             if technique == "decomp":  # Additional annotation for "decomp"
-                axs[0].text(pos, runtime , f"{abs_runtime:.1f}", ha='center', va='top', fontsize=8)
+                axs[0].text(pos, runtime / 2, f"{abs_runtime:.1f}", ha='center', va='center', fontsize=8, rotation=90)
 
     # Draw a baseline for "decomp"
     decomp_positions = [pos + bar_width * 0 for pos in x]  # First position corresponds to "decomp"
@@ -386,28 +555,25 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
     axs[0].set_ylabel('Normalized Runtime (Relative to Decomp)')
     axs[0].set_title('Normalized Benchmark Runtimes by Technique')
     axs[0].legend(title="Technique")
-    axs[0].set_yscale('log')  # Set y-axis to logarithmic scale
+    axs[0].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
 
-    # Plot LBD scatter plot
+    # Plot LBD bar chart
     for i, technique in enumerate(techniques):
         lbds = [group[i] for group in grouped_data_lbd.values()]
         lbds_abs = [group[i] for group in grouped_data_abs_lbd.values()]
-        x_positions = [pos + i * bar_width for pos in x]
-        axs[1].scatter(
-            x_positions,
+        bar_positions = [pos + i * bar_width for pos in x]
+        axs[1].bar(
+            bar_positions,
             lbds,
-            label=f'{technique} (LBD)',
-            color=colors[technique],
-            marker=markers[technique],
-            edgecolor="black",
-            s=100,  # Marker size
-            alpha=0.5  # Transparency for LBD
+            bar_width,
+            label=technique,
+            color=colors[technique]
         )
-        # Annotate points with LBDs
-        for pos, lbd, abs_lbd in zip(x_positions, lbds, lbds_abs):
+        # Annotate bars with LBDs
+        for pos, lbd, abs_lbd in zip(bar_positions, lbds, lbds_abs):
             axs[1].text(pos, lbd + 0.05, f"{lbd:.2f}", ha='center', va='bottom', fontsize=6, alpha=0.5)
             if technique == "decomp":  # Additional annotation for "decomp"
-                axs[1].text(pos, lbd, f"{abs_lbd:.1f}", ha='center', va='top', fontsize=8, alpha=0.5)
+                axs[1].text(pos, lbd / 2, f"{abs_lbd:.1f}", ha='center', va='center', fontsize=8, rotation=90, alpha=0.5)
 
     # Draw a baseline for "decomp" on LBD axis
     axs[1].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
@@ -415,28 +581,25 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
     axs[1].set_ylabel('Normalized LBD (Relative to Decomp)')
     axs[1].set_title('Normalized Benchmark LBD by Technique')
     axs[1].legend(title="Technique")
-    axs[1].set_yscale('log')  # Set y-axis to logarithmic scale
+    axs[1].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
 
-    # Plot learned clause length scatter plot
+    # Plot learned clause length bar chart
     for i, technique in enumerate(techniques):
         learned_clause_lengths = [group[i] for group in grouped_data_learned_clause_length.values()]
         learned_clause_lengths_abs = [group[i] for group in grouped_data_abs_learned_clause_length.values()]
-        x_positions = [pos + i * bar_width for pos in x]
-        axs[2].scatter(
-            x_positions,
+        bar_positions = [pos + i * bar_width for pos in x]
+        axs[2].bar(
+            bar_positions,
             learned_clause_lengths,
-            label=f'{technique} (Learned Clause Length)',
-            color=colors[technique],
-            marker=markers[technique],
-            edgecolor="black",
-            s=100,  # Marker size
-            alpha=0.5  # Transparency for learned clause length
+            bar_width,
+            label=technique,
+            color=colors[technique]
         )
-        # Annotate points with learned clause lengths
-        for pos, length, abs_length in zip(x_positions, learned_clause_lengths, learned_clause_lengths_abs):
+        # Annotate bars with learned clause lengths
+        for pos, length, abs_length in zip(bar_positions, learned_clause_lengths, learned_clause_lengths_abs):
             axs[2].text(pos, length + 0.05, f"{length:.2f}", ha='center', va='bottom', fontsize=6, alpha=0.5)
             if technique == "decomp":  # Additional annotation for "decomp"
-                axs[2].text(pos, length, f"{abs_length:.1f}", ha='center', va='top', fontsize=8, alpha=0.5)
+                axs[2].text(pos, length / 2, f"{abs_length:.1f}", ha='center', va='center', fontsize=8, rotation=90, alpha=0.5)
 
     # Draw a baseline for "decomp" on learned clause length axis
     axs[2].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
@@ -444,28 +607,25 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
     axs[2].set_ylabel('Normalized Learned Clause Length (Relative to Decomp)')
     axs[2].set_title('Normalized Benchmark Learned Clause Length by Technique')
     axs[2].legend(title="Technique")
-    axs[2].set_yscale('log')  # Set y-axis to logarithmic scale
+    axs[2].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
 
-    # Plot conflict size scatter plot
+    # Plot conflict size bar chart
     for i, technique in enumerate(techniques):
         conflict_sizes = [group[i] for group in grouped_data_conflict_size.values()]
         conflict_sizes_abs = [group[i] for group in grouped_data_abs_conflict_size.values()]
-        x_positions = [pos + i * bar_width for pos in x]
-        axs[3].scatter(
-            x_positions,
+        bar_positions = [pos + i * bar_width for pos in x]
+        axs[3].bar(
+            bar_positions,
             conflict_sizes,
-            label=f'{technique} (Conflict Size)',
-            color=colors[technique],
-            marker=markers[technique],
-            edgecolor="black",
-            s=100,  # Marker size
-            alpha=0.5  # Transparency for conflict size
+            bar_width,
+            label=technique,
+            color=colors[technique]
         )
-        # Annotate points with conflict sizes
-        for pos, size, abs_size in zip(x_positions, conflict_sizes, conflict_sizes_abs):
+        # Annotate bars with conflict sizes
+        for pos, size, abs_size in zip(bar_positions, conflict_sizes, conflict_sizes_abs):
             axs[3].text(pos, size + 0.05, f"{size:.2f}", ha='center', va='bottom', fontsize=6, alpha=0.5)
             if technique == "decomp":  # Additional annotation for "decomp"
-                axs[3].text(pos, size, f"{abs_size:.1f}", ha='center', va='top', fontsize=8, alpha=0.5)
+                axs[3].text(pos, size / 2, f"{abs_size:.1f}", ha='center', va='center', fontsize=8, rotation=90, alpha=0.5)
 
     # Draw a baseline for "decomp" on conflict size axis
     axs[3].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
@@ -474,7 +634,7 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
     axs[3].set_ylabel('Normalized Conflict Size (Relative to Decomp)')
     axs[3].set_title('Normalized Benchmark Conflict Size by Technique')
     axs[3].legend(title="Technique")
-    axs[3].set_yscale('log')  # Set y-axis to logarithmic scale
+    axs[3].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
 
     axs[0].set_xticks([pos + bar_width for pos in x])
     axs[3].set_xticklabels(abbreviated_problems, rotation=45, ha='right')
@@ -486,7 +646,7 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
 # Replace with your list of directories containing benchmark files
 #directories = ["output_evm_super_compilation/", "output_community_detection/", "output_physician_scheduling/", "output_rotating_workforce_scheduling/", "output_vaccine/"]
 #directories = ["output_evm_super_compilation/", "output_community_detection/", "output_rotating_workforce_scheduling/", "output_community_detection_rnd/" ]
-directories = ["output_all/" ]
+directories = ["output_all-new/" ]
 
 avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes = parse_benchmark_dirs(directories)
 normalized_runtimes = normalize(avg_runtimes)
@@ -495,10 +655,10 @@ normalized_learned_clause_lengths = normalize(avg_learned_clause_lengths)
 normalized_conflict_sizes = normalize(avg_conflict_sizes)
 
 plot_benchmarks(normalized_runtimes, avg_runtimes, title='Normalized Benchmark Runtimes by Technique')
-plot_benchmarks(normalized_lbds, avg_lbds, title='Normalized Benchmark LBD by Technique')
-plot_benchmarks(normalized_learned_clause_lengths, avg_learned_clause_lengths, title='Normalized Benchmark Learned Clause Length by Technique')
-plot_benchmarks(normalized_conflict_sizes, avg_conflict_sizes, title='Normalized Benchmark Conflict Size by Technique')
+#plot_benchmarks(normalized_lbds, avg_lbds, title='Normalized Benchmark LBD by Technique')
+#plot_benchmarks(normalized_learned_clause_lengths, avg_learned_clause_lengths, title='Normalized Benchmark Learned Clause Length by Technique')
+#plot_benchmarks(normalized_conflict_sizes, avg_conflict_sizes, title='Normalized Benchmark Conflict Size by Technique')
 
-#plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
-
+plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
+#plot_all_statistics_bar(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
 # %%
