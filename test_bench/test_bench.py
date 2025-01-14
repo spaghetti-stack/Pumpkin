@@ -11,7 +11,8 @@ import random
 
 temp_dir = './temp_directory'
 
-timeout_secs = 60*20 ## 20 minutes
+timeout_secs = 10 * 60 ## 10 minutes
+NUM_CORES = 6-1;
 
 def replace_in_file(file_path, string1, string2):
     # Open the file and read all lines
@@ -63,11 +64,18 @@ def run_command(name, command, output_file, timeout=timeout_secs+60):
         print(f"Command '{command}' failed with error: {e}")
 
 
-def print_status(futures, start_time, total_tasks):
+def print_status(futures, start_time, total_tasks, commands_to_run):
     # Count how many tasks have completed
     completed_tasks = sum(1 for future in futures if future.done())
     elapsed_time = time.time() - start_time
     print(f"Elapsed time: {elapsed_time:.2f} seconds, {completed_tasks}/{total_tasks} tasks finished")
+
+    # Print currently running tasks
+    running_tasks = [commands_to_run[i][2] for i, future in enumerate(futures) if future.running()]
+    if running_tasks:
+        print("Currently running tasks:")
+        for task in running_tasks:
+            print(f"  {task}")
 
 
 def main():
@@ -198,12 +206,10 @@ def main():
         print(output_path)
 
 
-    num_cores = 6  # Number of cores to use
-
     # Generate all combinations of input files, data files, and commands
 
     # Use ThreadPoolExecutor to run commands on multiple cores
-    executor =  ThreadPoolExecutor(max_workers=num_cores)
+    executor =  ThreadPoolExecutor(max_workers=NUM_CORES)
     futures = []
     for name, cmd, outfile in commands_to_run:
         future = executor.submit(run_command, name, cmd, outfile) 
@@ -218,14 +224,13 @@ def main():
     print("done creating futures")
     # Add a callback to each future to print the status when it finishes
     for future in futures:
-        future.add_done_callback(lambda f: print_status(futures, start_time, len(futures)))
+        future.add_done_callback(lambda f: print_status(futures, start_time, len(futures), commands_to_run))
 
     # Track progress every 5 seconds
     while True:
         time.sleep(10)  # Wait for 5 seconds
-        print_status(futures, start_time, len(futures))
+        print_status(futures, start_time, len(futures), commands_to_run)
 
-        # Check if all tasks are done
         if all(future.done() for future in futures):
             break
 

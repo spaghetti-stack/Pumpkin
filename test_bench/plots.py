@@ -208,6 +208,26 @@ def normalize(avg_values):
 
     return normalized_values
 
+def normalize_objective(avg_values):
+    """
+    Normalizes values so that all "decomp" runs are equal to 1.
+
+    Args:
+        avg_values (dict): Nested dictionary of problem, data file, and average values by technique.
+
+    Returns:
+        dict: Normalized values.
+    """
+    normalized_values = {}
+
+    for (problem, data_file), tech_values in avg_values.items():
+        decomp_value = tech_values.get("decomp", 0)
+        normalized_values[(problem, data_file)] = {
+            tech: (value / decomp_value if decomp_value > 0 else (2 if value > 0.0001 else 0)) for tech, value in tech_values.items()
+        }
+
+    return normalized_values
+
 def abbreviate_text(text, max_length=8):
     """
     Shortens the text to the specified max_length and appends '...' if truncated.
@@ -267,10 +287,10 @@ def plot_benchmarks(avg_values, abs_values, title='Normalized Benchmark Values b
 
         # Annotate bars with values
         for pos, value, value_abs in zip(bar_positions, values, values_abs):
-            if (technique == "regin" or technique == "basic_filter") and value > 0.01:
-                plt.text(pos, value + 0.15, f"{value:.2f}", ha='center', va='bottom', fontsize=5)
-            if value_abs > 0.1:
-                plt.text(pos, 0.01, f"{value_abs:.1f}", ha='center', va='bottom', fontsize=5, rotation=90, color='black', fontweight='bold')
+            if (technique == "regin" or technique == "basic_filter") and value > 0.000001:
+                plt.text(pos, value + 0.15, f"{value:.2f}", ha='center', va='bottom', fontsize=4)
+            #if (technique == "regin" or technique == "basic_filter") and value_abs > 0.000001:
+            #    plt.text(pos, 0.01, f"{value_abs:.2f}", ha='center', va='bottom', fontsize=4, rotation=90, color='black')
 
     # Draw a baseline for "decomp"
     decomp_positions = [pos + bar_width * 0 for pos in x]  # First position corresponds to "decomp"
@@ -279,7 +299,7 @@ def plot_benchmarks(avg_values, abs_values, title='Normalized Benchmark Values b
     plt.xlabel('Problems (Problem, Data File)')
     plt.ylabel('Normalized Value (Relative to Decomp)')
     plt.title(title)
-    plt.xticks([pos + bar_width for pos in x], abbreviated_problems, rotation=45, ha='right')
+    plt.xticks([pos + bar_width for pos in x], abbreviated_problems, rotation=45, ha='right', fontsize=5)
     plt.legend(title="Technique")
     plt.yscale('symlog')  # Set y-axis to symmetric logarithmic scale
     plt.tight_layout()
@@ -718,8 +738,6 @@ def plot_runtime_and_objective(avg_runtimes, avg_objectives, abs_runtimes, abs_o
         )
         # Annotate bars with objectives
         for pos, objective, abs_objective in zip(bar_positions, objectives, objectives_abs):
-            if (technique == "regin" or technique == "basic_filter") and objective > 0.01:
-                axs[1].text(pos, objective + 0.15 , f"{objective:.2f}", ha='center', va='bottom', fontsize=5)
             
             if abs_objective > 0.1:
                 axs[1].text(pos, 0.01, f"{abs_objective:.1f}", ha='center', va='bottom', fontsize=5, rotation=90, color='black', fontweight='bold')
@@ -747,7 +765,7 @@ directories = ["output_all-new/" ]
 
 avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes = parse_benchmark_dirs(directories)
 normalized_runtimes = normalize(avg_runtimes)
-normalized_objectives = normalize(avg_objectives)
+normalized_objectives = normalize_objective(avg_objectives)
 normalized_lbds = normalize(avg_lbds)
 normalized_learned_clause_lengths = normalize(avg_learned_clause_lengths)
 normalized_conflict_sizes = normalize(avg_conflict_sizes)
@@ -761,4 +779,27 @@ plot_runtime_and_objective(normalized_runtimes, normalized_objectives, avg_runti
 
 plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
 #plot_all_statistics_bar(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
+# %%
+
+directories = ["output_sudoku/" ]
+
+avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes = parse_benchmark_dirs(directories)
+normalized_runtimes = normalize(avg_runtimes)
+normalized_objectives = normalize_objective(avg_objectives)
+normalized_lbds = normalize(avg_lbds)
+normalized_learned_clause_lengths = normalize(avg_learned_clause_lengths)
+normalized_conflict_sizes = normalize(avg_conflict_sizes)
+
+#print(avg_runtimes)
+
+#plot_runtime_and_objective(normalized_runtimes, normalized_objectives, avg_runtimes, avg_objectives)
+plot_benchmarks(normalized_runtimes, avg_runtimes, title='Normalized Benchmark Runtimes by Technique')
+plot_benchmarks(avg_runtimes, avg_runtimes, title='Normalized Benchmark Runtimes by Technique')
+
+plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
+
+
+# %%
+
+
 # %%
