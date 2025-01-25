@@ -1,14 +1,9 @@
 use log::{debug, warn};
 
 use crate::{
-    basic_types::Inconsistency,
-    engine::{
-        propagation::{LocalId, Propagator, ReadDomains},
-        DomainEvents,
-    },
-    predicates::PropositionalConjunction,
-    propagators::global_cardinality::{conjunction_all_vars, max_count, min_count},
-    variables::IntegerVariable,
+    basic_types::Inconsistency, create_statistics_struct, engine::{
+        propagation::{LocalId, Propagator, ReadDomains}, reason, DomainEvents
+    }, predicate, predicates::PropositionalConjunction, propagators::global_cardinality::{conjunction_all_vars, max_count, min_count}, variables::IntegerVariable
 };
 
 use super::Values;
@@ -50,13 +45,20 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
             debug!("v: {:?}, min_count: {:?}, max_count: {:?}", value, min, max);
 
             // If this is false, there is definitely no solution
-            if min > value.omax || max < value.omin {
+            if min > value.omax {
                 // Constraint violation
                 debug!("Inconsistency detected: min: {:?}, max: {:?}, value: {:?}", min, max, value);
-                return Err(Inconsistency::Conflict(conjunction_all_vars(
-                    &context,
-                    &self.variables,
-                )));
+                return Err(Inconsistency::Conflict(self.variables.iter().filter(|v| context.is_fixed(*v) && context.upper_bound(*v) == value.value)
+                    .map(|v| predicate!(v == value.value))
+                    .collect()));
+            }
+
+            if max < value.omin {
+                // Constraint violation
+                debug!("Inconsistency detected: min: {:?}, max: {:?}, value: {:?}", min, max, value);
+                return Err(Inconsistency::Conflict(self.variables.iter().filter(|v| !context.contains(*v, value.value))
+                    .map(|v| predicate!(v != value.value))
+                    .collect()));
             }
 
             self.variables.iter().try_for_each(|var| {
@@ -72,38 +74,32 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
                         && min_count(&self.variables, value.value, &context) + 1 > value.omax
                     {
                         debug!("  Removing val = {}", value.value);
+                        let reason: PropositionalConjunction = self.variables.iter().filter(|v| context.is_fixed(*v) && context.upper_bound(*v) == value.value)
+                        .map(|v| predicate!(v == value.value))
+                        .collect();
                         context.remove(
                             var,
                             value.value,
-                            conjunction_all_vars(&context, &self.variables),
+                            reason,
                         )?;
                     }
                     //If not assigning variable $x$ to this value $v$ would make the max_count lower than the lower bound,
                     //then problem becomes inconsistent. Therefore  $D(x)=v$.
                     else if max_count(&self.variables, value.value, &context) - 1 < value.omin {
                         debug!("  Setting val = {}", value.value);
+                        let reason: PropositionalConjunction = self.variables.iter().filter(|v| !context.contains(*v, value.value))
+                        .map(|v| predicate!(v != value.value))
+                        .collect();
                         context.set_lower_bound(
                             var,
                             value.value,
-                            conjunction_all_vars(&context, &self.variables)
-                            //conjunction_all_vars(
-                                //&context,
-                                //self.variables
-                                //    .iter()
-                                //    .filter(|v| context.contains(*v, value.value)),
-                            //),
+                            reason.clone(),
                         )?;
 
                         context.set_upper_bound(
                             var,
                             value.value,
-                            conjunction_all_vars(&context, &self.variables)
-                            //conjunction_all_vars(
-                                //&context,
-                                //self.variables.iter().filter(|v| {
-                                //    context.is_fixed(*v) && context.contains(*v, value.value)
-                                //}),
-                            //),
+                            reason,
                         )?;
                     }
                 }
@@ -148,4 +144,17 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper2<Variable
     ) {
         debug!("notify backtrack");
     }
+
+    fn log_statistics(&self, statistic_logger: crate::statistics::StatisticLogger) {
+        create_statistics_struct!(Statistics { test: u32});
+
+        let statistics = Statistics { test: 0 };
+
+        statistic_logger.log_statistic(format!("{:?}", statistics));
+    }
+
+    fn priority(&self) -> u32 {
+        3
+    }
+
 }

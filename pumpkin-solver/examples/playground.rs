@@ -6,7 +6,6 @@ use pumpkin_solver::{
 };
 
 fn main() {
-    // We create the solver with default options
     let mut solver = Solver::default();
 
     configure_statistic_logging("",  None,  Some(Case::Camel),  None );
@@ -17,7 +16,6 @@ fn main() {
         .target(env_logger::Target::Stdout)
         .init();
 
-    // We create 3 variables with domains within the range [0, 10]
     let x1 = solver.new_bounded_integer(1, 2);
     let x2 = solver.new_bounded_integer(1, 2);
     let x3 = solver.new_bounded_integer(1, 2);

@@ -1,17 +1,13 @@
 use std::{cell::RefCell, collections::HashMap};
 
 use fnv::{FnvBuildHasher, FnvHashSet};
-use log::{debug, warn};
+use log::{debug, error, warn};
 use petgraph::{
-    dot::Dot,
-    graph::{DiGraph, Edge, NodeIndex},
-    prelude::EdgeIndex,
-    visit::EdgeRef,
-    Graph,
+    algo::has_path_connecting, dot::Dot, graph::{self, DiGraph, Edge, NodeIndex}, prelude::EdgeIndex, visit::EdgeRef, Graph
 };
 
 use crate::{
-    basic_types::{HashSet, Inconsistency}, engine::{
+    basic_types::{HashSet, Inconsistency}, create_statistics_struct, engine::{
         propagation::{LocalId, Propagator, ReadDomains},
         DomainEvents,
     }, predicate, predicates::PropositionalConjunction, propagators::global_cardinality::*, variables::{DomainId, IntegerVariable}
@@ -29,6 +25,7 @@ struct GraphData {
     variables_nodes: Vec<NodeIndex>,
     values_nodes: Vec<NodeIndex>,
     intermediate_edges: HashSet<EdgeIndex>,
+    initial_intermediate_edges: Vec<(NodeIndex, NodeIndex)>,
 }
 
 #[derive(Clone, Debug)]
@@ -36,6 +33,20 @@ pub(crate) struct GCCLowerUpper<Variable> {
     variables: Box<[Variable]>,
     values: Box<[Values]>,
     graph_data: GraphData,
+}
+
+impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
+    fn edge_joins_sccs(variable_index: NodeIndex, value_index: NodeIndex, residual_graph: &Graph<String, u32>, edge_source: NodeIndex, edge_target: NodeIndex) -> bool {
+        
+        // Clone the original graph
+        let mut cloned_graph = residual_graph.clone();
+        
+        // Add the new edge to the cloned graph
+        let _ = cloned_graph.add_edge(edge_source, edge_target, 1);
+        
+        // Check if there is a path from `source` to `target` in the cloned graph
+        has_path_connecting(&cloned_graph, variable_index, value_index, None)
+    }
 }
 
 impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
@@ -105,6 +116,7 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
             variables_nodes,
             values_nodes,
             intermediate_edges,
+            initial_intermediate_edges: vec![],
         }
     }
 
@@ -178,6 +190,7 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
                 variables_nodes: vec![],
                 values_nodes: vec![],
                 intermediate_edges: HashSet::with_hasher(FnvBuildHasher::default()),
+                initial_intermediate_edges: vec![],
             },
         }
     }
@@ -253,7 +266,8 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
         #[cfg(debug_assertions)]
         {
-            debug!("feasible flow: {}", Dot::new(&graph_data.graph));
+            let dot = graph_to_dot(&graph_data.graph, &vec![], &self.graph_data.variables_nodes, &self.graph_data.values_nodes, &vec![]);
+            debug!("feasible flow: {}", dot);
         }
 
         // If feasible flow less than sum of lower bounds, then no solution exists
@@ -295,7 +309,8 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
         #[cfg(debug_assertions)]
         {
-            debug!("max flow {}", Dot::new(&graph_data.graph));
+            let dot = graph_to_dot(&graph_data.graph, &vec![], &self.graph_data.variables_nodes, &self.graph_data.values_nodes, &vec![]);
+            debug!("max flow {}", dot);
         }
 
         // Find maximum flow with lower bounds
@@ -333,7 +348,8 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             } = edge.weight();
 
             // Add forward edge with residual capacity
-            if capacity > flow_display {
+            //if capacity > flow_display {
+            if flow_display < capacity {
                 let _ = residual_graph.add_edge(
                     nodes[src.index()],
                     nodes[dst.index()],
@@ -344,17 +360,19 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             // Add reverse edge with residual capacity (equal to flow)
             if *flow_display > *lower_bound {
                 let _ =
-                    residual_graph.add_edge(nodes[dst.index()], nodes[src.index()], *flow_display);
+                    residual_graph.add_edge(nodes[dst.index()], nodes[src.index()], *flow_display - *lower_bound);
+                    //residual_graph.add_edge(nodes[dst.index()], nodes[src.index()], *flow_display);
             }
         }
 
 
-        #[cfg(debug_assertions)]
-        {
-            debug!("residual graph: {}", Dot::new(&residual_graph));
+        if residual_graph.contains_edge(graph_data.source, graph_data.sink) {
+            warn!("Residual graph contains edge from source to sink. Regin doesn't specify if this is allowed, Katsirelos et al. 2011 does not allow this.");
+            //assert!(false);
         }
 
         let scc = petgraph::algo::tarjan_scc(&residual_graph);
+
 
         let mut node_to_scc = HashMap::new();
         for (scc_index, scc) in scc.iter().enumerate() {
@@ -423,18 +441,45 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 let expl2: PropositionalConjunction = expl2.into();
                 warn!("expl2: {:?}", expl2);
                 warn!("conj all vars: {:?}", conjunction_all_vars(&context, &self.variables));
-                
+                */
+                let mut expl2: Vec<Predicate> = vec![];
+                self.graph_data.initial_intermediate_edges.iter().for_each(|(i, j)| {
+                    if Self::edge_joins_sccs(ivar, ival, &residual_graph, *i, *j) {
+
+                    let var_index = graph_data
+                    .variables_nodes
+                    .iter()
+                    .position(|vn| *vn == *j)
+                    .unwrap();
+
+                    let val_index = graph_data
+                    .values_nodes
+                    .iter()
+                    .position(|vn| *vn == *i)
+                    .unwrap();
+                    expl2.push(predicate!( self.variables[var_index] != self.values[val_index].value ));
+
+                    }
+                });
+
+                let expl: Vec<Predicate> = conjunction_all_vars2(&context, &self.variables);
+                let expl_conj: PropositionalConjunction = expl.clone().into();
                 debug!(
-                    "Removed: x{} = {}",
+                    "Removed: x{} = {}. expl_pred: {:?}, expl_conj: {:?}, expl2: {:?}",
                     var_index + 1,
-                    self.values[val_index].value
-                ); */
+                    self.values[val_index].value,
+                    expl,
+                    expl_conj,
+                    expl2
+                );
+
+                
 
                 context.remove(
                     &self.variables[var_index],
                     self.values[val_index].value,
-                    conjunction_all_vars(&context, &self.variables),
-                    //expl2,
+                    //expl_conj,
+                    Into::<PropositionalConjunction>::into(expl2),
                 )?;
             } else {
                 debug!(
@@ -443,6 +488,13 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                     self.values[val_index].value
                 );
             }
+        }
+
+        #[cfg(debug_assertions)]
+        {
+            //let dot = Dot::new(&residual_graph);
+            let dot = graph_to_dot(&residual_graph, &scc, self.graph_data.variables_nodes.as_ref(), self.graph_data.values_nodes.as_ref(), &inconsistent_edges);
+            debug!("residual graph: {}", dot);
         }
 
         debug!("Inconsistent edges: {:?}", inconsistent_edges);
@@ -469,6 +521,13 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
         self.graph_data = self.construct_graph(context);
 
+        // Needed for creating explanations
+        self.graph_data.initial_intermediate_edges = self.graph_data.intermediate_edges.iter().map(|e| {
+            let edge = self.graph_data.graph.edge_references().nth(e.index()).unwrap();
+            (edge.source(), edge.target())
+        }).collect();
+        
+
         // Register for backtrack events if needed with:
         //context.register_for_backtrack_events(var, domain_events, local_id);
         Ok(())
@@ -491,6 +550,18 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         _event: crate::engine::opaque_domain_event::OpaqueDomainEvent,
     ) {
         debug!("notify backtrack");
+    }
+
+    fn log_statistics(&self, statistic_logger: crate::statistics::StatisticLogger) {
+        create_statistics_struct!(Statistics { test: u32});
+
+        let statistics = Statistics { test: 0 };
+
+        statistic_logger.log_statistic(format!("{:?}", statistics));
+    }
+
+    fn priority(&self) -> u32 {
+        3
     }
 }
 
