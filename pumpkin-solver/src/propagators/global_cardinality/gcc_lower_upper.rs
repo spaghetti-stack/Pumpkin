@@ -1,6 +1,6 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell};
 
-use fnv::{FnvBuildHasher, FnvHashSet};
+use fnv::{FnvBuildHasher, FnvHashSet, FnvHashMap};
 use log::{debug, error, warn};
 use petgraph::{
     algo::has_path_connecting, dot::Dot, graph::{self, DiGraph, Edge, NodeIndex}, prelude::EdgeIndex, visit::EdgeRef, Graph
@@ -26,6 +26,8 @@ struct GraphData {
     values_nodes: Vec<NodeIndex>,
     intermediate_edges: HashSet<EdgeIndex>,
     initial_intermediate_edges: Vec<(NodeIndex, NodeIndex)>,
+    node_index_to_variable_index: FnvHashMap<NodeIndex, usize>,
+    node_index_to_value_index: FnvHashMap<NodeIndex, usize>,
 }
 
 #[derive(Clone, Debug)]
@@ -109,6 +111,9 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
 
         //debug!("{}", Dot::new(&graph.borrow().clone()));
 
+        let node_index_to_value_index: HashMap<NodeIndex, usize> = values_nodes.iter().enumerate().map(|(i, node)| (*node, i)).collect();
+        let node_index_to_variable_index: HashMap<NodeIndex, usize> = variables_nodes.iter().enumerate().map(|(i, node)| (*node, i)).collect();
+
         GraphData {
             graph: graph.into_inner(),
             source,
@@ -117,6 +122,8 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
             values_nodes,
             intermediate_edges,
             initial_intermediate_edges: vec![],
+            node_index_to_value_index,
+            node_index_to_variable_index,
         }
     }
 
@@ -191,6 +198,8 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
                 values_nodes: vec![],
                 intermediate_edges: HashSet::with_hasher(FnvBuildHasher::default()),
                 initial_intermediate_edges: vec![],
+                node_index_to_variable_index: FnvHashMap::default(),
+                node_index_to_value_index: FnvHashMap::default(),
             },
         }
     }
@@ -395,17 +404,23 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             let ivar = curr_edge.target();
             let ival = curr_edge.source();
 
-            let var_index = graph_data
+            let var_index = self.graph_data.node_index_to_variable_index[&ivar];
+            /*let var_index = graph_data
                 .variables_nodes
                 .iter()
                 .position(|vn| *vn == ivar)
                 .unwrap();
+            */
 
+            let val_index = self.graph_data.node_index_to_value_index[&ival];
+
+            /* 
             let val_index = graph_data
                 .values_nodes
                 .iter()
                 .position(|vn| *vn == ival)
                 .unwrap();
+            */
 
             if curr_edge.weight().flow_display == 0 && are_different(ivar, ival) {
                 inconsistent_edges.push(curr_edge);
@@ -446,17 +461,10 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 self.graph_data.initial_intermediate_edges.iter().for_each(|(i, j)| {
                     if Self::edge_joins_sccs(ivar, ival, &residual_graph, *i, *j) {
 
-                    let var_index = graph_data
-                    .variables_nodes
-                    .iter()
-                    .position(|vn| *vn == *j)
-                    .unwrap();
+                    let var_index = graph_data.node_index_to_variable_index[&j];
 
-                    let val_index = graph_data
-                    .values_nodes
-                    .iter()
-                    .position(|vn| *vn == *i)
-                    .unwrap();
+                    let val_index = graph_data.node_index_to_value_index[&i];
+
                     expl2.push(predicate!( self.variables[var_index] != self.values[val_index].value ));
 
                     }
