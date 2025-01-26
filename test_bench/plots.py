@@ -1,6 +1,8 @@
 # %%
 import os
 import re
+import numpy as np
+from scipy.stats import gmean
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
@@ -170,6 +172,11 @@ def parse_benchmark_dirs(directories, ignore_unkown_status=False):
         (problem, data_file): {tech: sum(runtimes) / len(runtimes) if runtimes else 0 for tech, runtimes in techniques.items()}
         for (problem, data_file), techniques in benchmark_data.items()
     }
+
+    standard_deviation_runtimes = {
+        (problem, data_file): {tech: np.std(runtimes) if runtimes else 0 for tech, runtimes in techniques.items()}
+        for (problem, data_file), techniques in benchmark_data.items()
+    }
     avg_objectives = {
         (problem, data_file): {tech: sum(runtimes) / len(runtimes) if runtimes else 0 for tech, runtimes in techniques.items()}
         for (problem, data_file), techniques in objective_data.items()
@@ -180,13 +187,12 @@ def parse_benchmark_dirs(directories, ignore_unkown_status=False):
     }
     avg_learned_clause_lengths = {
         (problem, data_file): {tech: sum(lengths) / len(lengths) if lengths else 0 for tech, lengths in techniques.items()}
-        for (problem, data_file), techniques in learned_clause_length_data.items()
-    }
+        for (problem, data_file), techniques in learned_clause_length_data.items()}
     avg_conflict_sizes = {
         (problem, data_file): {tech: sum(sizes) / len(sizes) if sizes else 0 for tech, sizes in techniques.items()}
         for (problem, data_file), techniques in conflict_size_data.items()
     }
-    return (avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
+    return (avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes, standard_deviation_runtimes)
 
 def normalize(avg_values):
     """
@@ -757,13 +763,91 @@ def plot_runtime_and_objective(avg_runtimes, avg_objectives, abs_runtimes, abs_o
     fig.tight_layout()
     plt.show()
 
+def print_standard_deviation(avg_runtimes, std):
+    """
+    Prints the average runtime and standard deviation of runtimes for each technique in a readable format.
+
+    Args:
+        avg_runtimes (dict): Nested dictionary of problem, data file, and average runtimes by technique.
+        std (dict): Nested dictionary of problem, data file, and standard deviation of runtimes by technique.
+    """
+    for (problem, data_file), tech_std in std.items():
+        print(f"Problem: {problem}, Data File: {data_file}")
+        for technique, deviation in tech_std.items():
+            avg_runtime = avg_runtimes[(problem, data_file)].get(technique, 0)
+            print(f"  Technique: {technique}, Average Runtime: {avg_runtime:.2f}, Standard Deviation: {deviation:.2f}")
+
+def print_mean_ratios_and_success_rate(avg_runtimes):
+    """
+    Prints the mean of ratios of the runtimes of Regin vs Decomp and Basic Filter vs Decomp.
+    Considers timeouts and reports the success rate for each technique.
+
+    Args:
+        avg_runtimes (dict): Nested dictionary of problem, data file, and average runtimes by technique.
+    """
+    regin_ratios = []
+    basic_filter_ratios = []
+    regin_did_not_terminate = 0
+    basic_filter_did_not_terminate = 0
+    decomp_did_not_terminate = 0
+    total_instances = 0
+
+    for tech_runtimes in avg_runtimes.values():
+        #print(tech_runtimes)
+        decomp_runtime = tech_runtimes.get("decomp", 0)
+        regin_runtime = tech_runtimes.get("regin", 0)
+        basic_filter_runtime = tech_runtimes.get("basic_filter", 0)
+        #print(decomp_runtime, regin_runtime, basic_filter_runtime)
+
+        if decomp_runtime == 0:
+            decomp_did_not_terminate += 1
+            decomp_runtime = MAX_RUNTIME
+            #print("Decomp did not terminate")
+
+        if regin_runtime == 0:
+            regin_did_not_terminate += 1
+            regin_runtime = MAX_RUNTIME
+            #print("Regin did not terminate")
+        if not (regin_runtime == 0 and decomp_runtime == 0):
+            #print(regin_runtime, decomp_runtime, regin_runtime / decomp_runtime)
+            regin_ratios.append(decomp_runtime / regin_runtime)
+
+        if basic_filter_runtime == 0:
+            basic_filter_did_not_terminate += 1
+            basic_filter_runtime = MAX_RUNTIME
+            #print("Basic Filter did not terminate")
+
+        if not (basic_filter_runtime == 0 and decomp_runtime == 0):
+            #print(basic_filter_runtime, decomp_runtime, basic_filter_runtime / decomp_runtime)
+            basic_filter_ratios.append(decomp_runtime / basic_filter_runtime)
+
+        total_instances += 1
+
+    mean_regin_ratio = np.mean(regin_ratios) if regin_ratios else float('inf')
+    #print(f"regin ratios: {regin_ratios}");
+    #print(f"basic filter ratios: {basic_filter_ratios}");
+    mean_basic_filter_ratio = np.mean(basic_filter_ratios) if basic_filter_ratios else float('inf')
+
+    geometric_mean_regin_ratio = gmean(regin_ratios) if regin_ratios else float('inf')
+    geometric_mean_basic_filter_ratio = gmean(basic_filter_ratios) if basic_filter_ratios else float('inf')
+
+    regin_success_rate = (total_instances - regin_did_not_terminate) / total_instances
+    basic_filter_success_rate = (total_instances - basic_filter_did_not_terminate) / total_instances
+    decomp_success_rate = (total_instances - decomp_did_not_terminate) / total_instances
+
+    print(f"Mean speedup Ratio (Regin vs Decomp): arithmetic: {mean_regin_ratio:.2f}, geometric: {geometric_mean_regin_ratio:.2f}")
+    print(f"Mean speedup Ratio (Basic Filter vs Decomp): arithmetic: {mean_basic_filter_ratio:.2f}, geometric: {geometric_mean_basic_filter_ratio:.2f}")
+    print(f"Success Rate (Regin): {regin_success_rate:.2%}")
+    print(f"Success Rate (Basic Filter): {basic_filter_success_rate:.2%}")
+    print(f"Success Rate (Decomp): {decomp_success_rate:.2%}")
+
 # %%
 # Replace with your list of directories containing benchmark files
 #directories = ["output_evm_super_compilation/", "output_community_detection/", "output_physician_scheduling/", "output_rotating_workforce_scheduling/", "output_vaccine/"]
 #directories = ["output_evm_super_compilation/", "output_community_detection/", "output_rotating_workforce_scheduling/", "output_community_detection_rnd/" ]
 directories = ["output_all-new/" ]
 
-avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes = parse_benchmark_dirs(directories)
+avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes, std = parse_benchmark_dirs(directories)
 normalized_runtimes = normalize(avg_runtimes)
 normalized_objectives = normalize_objective(avg_objectives)
 normalized_lbds = normalize(avg_lbds)
@@ -778,12 +862,16 @@ plot_runtime_and_objective(normalized_runtimes, normalized_objectives, avg_runti
 #plot_benchmarks(normalized_conflict_sizes, avg_conflict_sizes, title='Normalized Benchmark Conflict Size by Technique')
 
 plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
+
+print_mean_ratios_and_success_rate(avg_runtimes)
+
+
 #plot_all_statistics_bar(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
 # %%
 
-directories = ["output_sudoku/" ]
+directories = ["output_sudoku_single/" ]
 
-avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes = parse_benchmark_dirs(directories)
+avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes, std = parse_benchmark_dirs(directories)
 normalized_runtimes = normalize(avg_runtimes)
 normalized_objectives = normalize_objective(avg_objectives)
 normalized_lbds = normalize(avg_lbds)
@@ -798,8 +886,32 @@ plot_benchmarks(avg_runtimes, avg_runtimes, title='Normalized Benchmark Runtimes
 
 plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
 
+print_mean_ratios_and_success_rate(avg_runtimes)
+
 
 # %%
 
+directories = ["output_all_new_expls/" ]
+
+avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes, std = parse_benchmark_dirs(directories)
+normalized_runtimes = normalize(avg_runtimes)
+normalized_objectives = normalize_objective(avg_objectives)
+normalized_lbds = normalize(avg_lbds)
+normalized_learned_clause_lengths = normalize(avg_learned_clause_lengths)
+normalized_conflict_sizes = normalize(avg_conflict_sizes)
+
+plot_runtime_and_objective(normalized_runtimes, normalized_objectives, avg_runtimes, avg_objectives)
+
+# Print the mean ratios and success rates
+print_mean_ratios_and_success_rate(avg_runtimes)
+
+# Print the average runtime and standard deviation in a readable format
+#print_standard_deviation(avg_runtimes, std)
+
+# Print the overall improvement ratios
+# Calculate and print runtime deviations
+#calculate_runtime_deviation(avg_runtimes)
+
+# %%
 
 # %%
