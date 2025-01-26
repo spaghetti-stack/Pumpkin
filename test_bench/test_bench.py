@@ -11,7 +11,7 @@ import random
 
 temp_dir = './temp_directory'
 
-timeout_secs = 20 * 60 ## 20 minutes
+timeout_secs = 10 * 60 ## 20 minutes
 NUM_CORES = 6-1;
 
 def replace_in_file(file_path, string1, string2):

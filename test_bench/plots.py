@@ -147,7 +147,7 @@ def parse_benchmark_dirs(directories, ignore_unkown_status=False):
 
     for directory in directories:
         for filename in os.listdir(directory):
-            if filename.endswith('.txt'):
+            if filename.endswith('.txt') and not filename.startswith("#"):
                 # Extract problem name, technique, and data file
                 match = re.match(r"(.+?)_(regin|basic_filter|decomp)\.mzn-(.+?)-[0-9]+\.txt", filename)
                 if match:
@@ -247,7 +247,7 @@ def abbreviate_text(text, max_length=8):
     """
     return text if len(text) <= max_length else text[:max_length - 3] + '...'
 
-def plot_benchmarks(avg_values, abs_values, title='Normalized Benchmark Values by Technique'):
+def plot_benchmarks(avg_values, abs_values, title='Normalized Benchmark Values by Technique', hide_problem_name=False):
     """
     Creates a grouped bar plot of the normalized values by technique.
 
@@ -272,7 +272,7 @@ def plot_benchmarks(avg_values, abs_values, title='Normalized Benchmark Values b
 
     # Sort problems alphabetically by their label
     problems = sorted(grouped_data.keys(), key=lambda x: f"{x[0]}, {x[1]}")
-    abbreviated_problems = [f"{abbreviate_text(problem, max_length=10)}, {abbreviate_text(data_file, max_length=20)}" for problem, data_file in problems]
+    abbreviated_problems = [f"{str(abbreviate_text(problem, max_length=10))+", " if not hide_problem_name else ""}{abbreviate_text(data_file, max_length=20)}" for problem, data_file in problems]
     x = range(len(problems))
     bar_width = 0.2
 
@@ -400,8 +400,8 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
     # Draw a baseline for "decomp" on LBD axis
     axs[0].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
 
-    axs[0].set_ylabel('Normalized LBD (Relative to Decomp)')
-    axs[0].set_title('Normalized Benchmark LBD by Technique')
+    axs[0].set_ylabel('Normalized LBD')
+    axs[0].set_title('Normalized LBD by Technique (Relative to Decomp)')
     axs[0].legend(title="Technique")
     axs[0].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
 
@@ -433,8 +433,8 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
     # Draw a baseline for "decomp" on learned clause length axis
     axs[1].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
 
-    axs[1].set_ylabel('Normalized Learned Clause Length (Relative to Decomp)')
-    axs[1].set_title('Normalized Benchmark Learned Clause Length by Technique')
+    axs[1].set_ylabel('Normalized Learned Clause Length')
+    axs[1].set_title('Normalized Learned Clause Length by Technique (Relative to Decomp)')
     axs[1].legend(title="Technique")
     axs[1].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
 
@@ -467,8 +467,8 @@ def plot_all_statistics(avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_
     axs[2].plot(decomp_positions, [1] * len(decomp_positions), '-', label='Baseline (Decomp = 1)', color="black", lw=0.5)
 
     axs[2].set_xlabel('Problems (Problem, Data File)')
-    axs[2].set_ylabel('Normalized Conflict Size (Relative to Decomp)')
-    axs[2].set_title('Normalized Benchmark Conflict Size by Technique')
+    axs[2].set_ylabel('Normalized Conflict Size')
+    axs[2].set_title('Normalized Conflict Size by Technique (Relative to Decomp)')
     axs[2].legend(title="Technique")
     axs[2].set_yscale('symlog')  # Set y-axis to symmetric logarithmic scale
 
@@ -891,10 +891,10 @@ normalized_conflict_sizes = normalize(avg_conflict_sizes)
 #print(avg_runtimes)
 
 #plot_runtime_and_objective(normalized_runtimes, normalized_objectives, avg_runtimes, avg_objectives)
-plot_benchmarks(normalized_runtimes, avg_runtimes, title='Normalized Benchmark Runtimes by Technique')
-plot_benchmarks(avg_runtimes, avg_runtimes, title='Normalized Benchmark Runtimes by Technique')
+plot_benchmarks(normalized_runtimes, avg_runtimes, title='Normalized Runtimes by Technique', hide_problem_name=True)
+#plot_benchmarks(avg_runtimes, avg_runtimes, title='Normalized Runtimes by Technique')
 
-plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
+#plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
 
 print_mean_ratios_and_success_rate(avg_runtimes, "Runtimes", invert=True)
 print_mean_ratios_and_success_rate(avg_lbds, "LBD", remove_missing=True)
@@ -933,5 +933,22 @@ print_mean_ratios_and_success_rate(avg_conflict_sizes, "Conflict Size", remove_m
 #calculate_runtime_deviation(avg_runtimes)
 
 # %%
+directories = ["output_all_new_expls_v2_r1/" ]
 
+avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes, std = parse_benchmark_dirs(directories)
+normalized_runtimes = normalize(avg_runtimes)
+normalized_objectives = normalize_objective(avg_objectives)
+normalized_lbds = normalize(avg_lbds)
+normalized_learned_clause_lengths = normalize(avg_learned_clause_lengths)
+normalized_conflict_sizes = normalize(avg_conflict_sizes)
+
+plot_runtime_and_objective(normalized_runtimes, normalized_objectives, avg_runtimes, avg_objectives)
+plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
+
+
+# Print the mean ratios and success rates
+print_mean_ratios_and_success_rate(avg_runtimes, "Runtimes", invert=True)
+print_mean_ratios_and_success_rate(avg_lbds, "LBD", remove_missing=True)
+print_mean_ratios_and_success_rate(avg_learned_clause_lengths, "LCL", remove_missing=True)
+print_mean_ratios_and_success_rate(avg_conflict_sizes, "Conflict Size", remove_missing=True)
 # %%
