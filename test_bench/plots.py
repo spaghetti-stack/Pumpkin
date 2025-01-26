@@ -777,7 +777,7 @@ def print_standard_deviation(avg_runtimes, std):
             avg_runtime = avg_runtimes[(problem, data_file)].get(technique, 0)
             print(f"  Technique: {technique}, Average Runtime: {avg_runtime:.2f}, Standard Deviation: {deviation:.2f}")
 
-def print_mean_ratios_and_success_rate(avg_runtimes, stat_type="Runtime", remove_missing=False, invert=False):
+def print_mean_ratios_and_success_rate(avg_runtimes, stat_type="Runtime", remove_missing=False, invert=False, max_runtime=MAX_RUNTIME):
     """
     Prints the mean of ratios of the runtimes of Regin vs Decomp and Basic Filter vs Decomp.
     Considers timeouts and reports the success rate for each technique.
@@ -804,27 +804,27 @@ def print_mean_ratios_and_success_rate(avg_runtimes, stat_type="Runtime", remove
 
         if decomp_runtime == 0:
             decomp_did_not_terminate += 1
-            decomp_runtime = MAX_RUNTIME
+            decomp_runtime = max_runtime
             #print("Decomp did not terminate")
 
         if regin_runtime == 0:
             regin_did_not_terminate += 1
-            regin_runtime = MAX_RUNTIME
+            regin_runtime = max_runtime
             #print("Regin did not terminate")
 
         if basic_filter_runtime == 0:
             basic_filter_did_not_terminate += 1
-            basic_filter_runtime = MAX_RUNTIME
+            basic_filter_runtime = max_runtime
             #print("Basic Filter did not terminate")
 
         if not (regin_runtime == 0 and decomp_runtime == 0):
-            #print(regin_runtime, decomp_runtime, regin_runtime / decomp_runtime)
+            #print("REG: ",regin_runtime, decomp_runtime, decomp_runtime / regin_runtime if invert else regin_runtime / decomp_runtime)
             regin_ratios.append(decomp_runtime / regin_runtime if invert else regin_runtime / decomp_runtime)
 
         
 
         if not (basic_filter_runtime == 0 and decomp_runtime == 0):
-            #print(basic_filter_runtime, decomp_runtime, basic_filter_runtime / decomp_runtime)
+            #print("BF: ", basic_filter_runtime, decomp_runtime, decomp_runtime / basic_filter_runtime if invert else basic_filter_runtime / decomp_runtime)
             basic_filter_ratios.append(decomp_runtime / basic_filter_runtime if invert else basic_filter_runtime / decomp_runtime)
 
         total_instances += 1
@@ -896,11 +896,35 @@ plot_benchmarks(normalized_runtimes, avg_runtimes, title='Normalized Runtimes by
 
 #plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
 
-print_mean_ratios_and_success_rate(avg_runtimes, "Runtimes", invert=True)
+print_mean_ratios_and_success_rate(avg_runtimes, "Runtimes", invert=True, max_runtime=MAX_RUNTIME/2)
 print_mean_ratios_and_success_rate(avg_lbds, "LBD", remove_missing=True)
 print_mean_ratios_and_success_rate(avg_learned_clause_lengths, "LCL", remove_missing=True)
 print_mean_ratios_and_success_rate(avg_conflict_sizes, "CS", remove_missing=True)
 
+
+# %%
+
+directories = ["output_sudoku_single_new_expls_v2/" ]
+
+avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes, std = parse_benchmark_dirs(directories)
+normalized_runtimes = normalize(avg_runtimes)
+normalized_objectives = normalize_objective(avg_objectives)
+normalized_lbds = normalize(avg_lbds)
+normalized_learned_clause_lengths = normalize(avg_learned_clause_lengths)
+normalized_conflict_sizes = normalize(avg_conflict_sizes)
+
+#print(avg_runtimes)
+
+#plot_runtime_and_objective(normalized_runtimes, normalized_objectives, avg_runtimes, avg_objectives)
+plot_benchmarks(normalized_runtimes, avg_runtimes, title='Normalized Runtimes by Technique', hide_problem_name=True)
+#plot_benchmarks(avg_runtimes, avg_runtimes, title='Normalized Runtimes by Technique')
+
+#plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
+
+print_mean_ratios_and_success_rate(avg_runtimes, "Runtimes", invert=True, max_runtime=MAX_RUNTIME/2)
+print_mean_ratios_and_success_rate(avg_lbds, "LBD", remove_missing=True)
+print_mean_ratios_and_success_rate(avg_learned_clause_lengths, "LCL", remove_missing=True)
+print_mean_ratios_and_success_rate(avg_conflict_sizes, "CS", remove_missing=True)
 
 # %%
 

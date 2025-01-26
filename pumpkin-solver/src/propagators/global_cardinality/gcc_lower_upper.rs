@@ -17,9 +17,6 @@ use super::{ford_fulkerson_lower_bounds::BoundedCapacity, Values};
 // local ids of array vars are shifted by ID_X_OFFSET
 const ID_X_OFFSET: u32 = 2;
 
-type FromIndex = NodeIndex;
-type ToIndex = NodeIndex;
-
 #[derive(Clone, Debug)]
 struct GraphData {
     graph: Graph<String, BoundedCapacity>,
@@ -27,8 +24,8 @@ struct GraphData {
     sink: NodeIndex,
     variables_nodes: Vec<NodeIndex>,
     values_nodes: Vec<NodeIndex>,
-    intermediate_edges: FnvHashMap<EdgeIndex, (FromIndex, ToIndex)>,
-    initial_intermediate_edges: Vec<(FromIndex, ToIndex)>,
+    intermediate_edges: HashSet<EdgeIndex>,
+    initial_intermediate_edges: Vec<(NodeIndex, NodeIndex)>,
     node_index_to_variable_index: FnvHashMap<NodeIndex, usize>,
     node_index_to_value_index: FnvHashMap<NodeIndex, usize>,
 }
@@ -41,21 +38,16 @@ pub(crate) struct GCCLowerUpper<Variable> {
 }
 
 impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
-    fn edge_joins_sccs(graph: &mut Graph<String, BoundedCapacity>, variable_index: NodeIndex, value_index: NodeIndex, edge_source: NodeIndex, edge_target: NodeIndex) -> bool {
+    fn edge_joins_sccs(variable_index: NodeIndex, value_index: NodeIndex, residual_graph: &Graph<String, u32>, edge_source: NodeIndex, edge_target: NodeIndex) -> bool {
         
         // Clone the original graph
-        //let mut cloned_graph = residual_graph.clone();
+        let mut cloned_graph = residual_graph.clone();
         
         // Add the new edge to the cloned graph
-        let new_edge = graph.add_edge(edge_source, edge_target, (0, 1).into());
+        let _ = cloned_graph.add_edge(edge_source, edge_target, 1);
         
         // Check if there is a path from `source` to `target` in the cloned graph
-        let connects = has_path_connecting(&*graph, variable_index, value_index, None);
-
-        // Make sure to remove the edge again
-        assert!(graph.remove_edge(new_edge).is_some());
-
-        return connects;
+        has_path_connecting(&cloned_graph, variable_index, value_index, None)
     }
 }
 
@@ -89,7 +81,7 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
         
 
         // Add from vals to vars if the var has that val in its domain
-        let intermediate_edges: FnvHashMap<_, _> = values_nodes
+        let intermediate_edges: HashSet<_> = values_nodes
             .iter()
             .zip(&self.values.clone())
             .flat_map(|(ival, val)| {
@@ -100,9 +92,7 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
                     .map(|(ivar, _)| {
                         let e = graph.borrow_mut().add_edge(*ival, *ivar, (0, 1).into());
                         //debug!("add egde: {:?} -> {:?}: {:?}", *ival, *ivar, e);
-                        //e
-                        (e, (*ival, *ivar))
-                        
+                        e
                     })
             })
             .collect();
@@ -181,14 +171,14 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
         
         // Remove the specified edges using retain_edges
         // Using remove_edge shifts the indices, causing potential bugs.
-        let edge_set: FnvHashMap<EdgeIndex, _> = intermediate_edges.into_iter().collect();
-        self.graph_data.graph.retain_edges(|_, edge_index| !edge_set.contains_key(&edge_index));
+        let edge_set: std::collections::HashSet<EdgeIndex> = intermediate_edges.into_iter().collect();
+        self.graph_data.graph.retain_edges(|_, edge_index| !edge_set.contains(&edge_index));
 
         let mut intermediate_edges = Vec::new();
         for (ival, val) in self.graph_data.values_nodes.iter().zip(&self.values) {
             for (ivar, var) in self.graph_data.variables_nodes.iter().zip(&self.variables) {
                 if context.contains(var, val.value) {
-                    intermediate_edges.push((self.graph_data.graph.add_edge(*ival, *ivar, (0, 1).into()), (*ival, *ivar)));
+                    intermediate_edges.push(self.graph_data.graph.add_edge(*ival, *ivar, (0, 1).into()));
                 }
             }
         }
@@ -208,7 +198,7 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
                 sink: NodeIndex::default(),
                 variables_nodes: vec![],
                 values_nodes: vec![],
-                intermediate_edges: FnvHashMap::default(),
+                intermediate_edges: HashSet::with_hasher(FnvBuildHasher::default()),
                 initial_intermediate_edges: vec![],
                 node_index_to_variable_index: FnvHashMap::default(),
                 node_index_to_value_index: FnvHashMap::default(),
@@ -406,16 +396,13 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
         let mut inconsistent_edges = Vec::new();
 
-        //let edges_ref: &Vec<_> = &self.graph_data.graph.edge_references().collect();
-        for (edge, (ival, ivar)) in &self.graph_data.intermediate_edges {
-            
-            let curr_edge = self.graph_data.graph[*edge];
-            //let curr_edge = &edges_ref[edge.index()];
-            
-            //let ivar = curr_edge.target();
-            //let ival = curr_edge.source();
+        let edges_ref: Vec<_> = self.graph_data.graph.edge_references().collect();
+        for edge in &self.graph_data.intermediate_edges {
+            let curr_edge = edges_ref[edge.index()];
+            let ivar = curr_edge.target();
+            let ival = curr_edge.source();
 
-            let var_index = self.graph_data.node_index_to_variable_index[ivar];
+            let var_index = self.graph_data.node_index_to_variable_index[&ivar];
             /*let var_index = self.graph_data
                 .variables_nodes
                 .iter()
@@ -423,7 +410,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 .unwrap();
             */
 
-            let val_index = self.graph_data.node_index_to_value_index[ival];
+            let val_index = self.graph_data.node_index_to_value_index[&ival];
 
             /* 
             let val_index = self.graph_data
@@ -433,31 +420,58 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 .unwrap();
             */
 
-            if curr_edge.flow_display == 0 && are_different(*ivar, *ival) {
-                inconsistent_edges.push(*edge);
+            if curr_edge.weight().flow_display == 0 && are_different(ivar, ival) {
+                inconsistent_edges.push(curr_edge);
 
-               
+                /* let mut expl = Vec::new();
+                let mut expl2 = Vec::new();
+                self.graph_data.variables_nodes.iter().zip(self.variables.clone()).enumerate().for_each( |(ic, (vari_c,var_c)) | {
+                    
+                    self.graph_data.values_nodes.iter().zip(self.values.clone()).for_each(|(vali_c, val_c)| {
+
+                        let var_index_c = self.graph_data
+                        .variables_nodes
+                        .iter()
+                        .position(|vn| *vn == *vari_c)
+                        .unwrap();
+        
+                        let val_index_c = self.graph_data
+                            .values_nodes
+                            .iter()
+                            .position(|vn| *vn == *vali_c)
+                            .unwrap();
+
+                        if *vari_c != ivar && !are_different(*vari_c, ivar) && are_different(ivar, *vali_c) {
+                            expl.push((vari_c.clone(), vali_c));
+                            expl2.push(predicate!( self.variables[val_index_c] != self.values[val_index_c].value ));
+                        }
+                    });
+                }); */
+
+
+
+                /* warn!("expl: {:?}", expl);
+                let expl2: PropositionalConjunction = expl2.into();
+                warn!("expl2: {:?}", expl2);
+                warn!("conj all vars: {:?}", conjunction_all_vars(&context, &self.variables));
+                */
                 let naive_expl: Vec<Predicate> = conjunction_all_vars_vec(&context, &self.variables);
                 let mut expl2: Vec<Predicate> = vec![];
 
                 // Avoid lenghty explanation computation if the naive explanation only contains one predicate
                 if naive_expl.len() > 1 {
                     
-                for (i,j) in self.graph_data.initial_intermediate_edges.iter() {
+                self.graph_data.initial_intermediate_edges.iter().for_each(|(i, j)| {
+                    if Self::edge_joins_sccs(ivar, ival, &residual_graph, *i, *j) {
 
                     let var_index = self.graph_data.node_index_to_variable_index[&j];
 
                     let val_index = self.graph_data.node_index_to_value_index[&i];
 
-                    // An assignment (edge) cannot be in the explanation if it is in the current domain of a variable
-                    // this can be used to shortcircuit the explanation computation
-                    if !context.contains(&self.variables[var_index], self.values[val_index].value) 
-                        && Self::edge_joins_sccs(&mut self.graph_data.graph, *ivar, *ival, *i, *j) {
-
-                        expl2.push(predicate!( self.variables[var_index] != self.values[val_index].value ));
+                    expl2.push(predicate!( self.variables[var_index] != self.values[val_index].value ));
 
                     }
-                };
+                });
 
                 }else {
                     expl2 = naive_expl.clone();
@@ -529,10 +543,9 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         self.graph_data = self.construct_graph(context);
 
         // Needed for creating explanations
-        self.graph_data.initial_intermediate_edges = self.graph_data.intermediate_edges.iter().map(|(e, (i, j))| {
-            //let edge = self.graph_data.graph.edge_references().nth(e.index()).unwrap();
-            //(edge.source(), edge.target())
-            (*i, *j)
+        self.graph_data.initial_intermediate_edges = self.graph_data.intermediate_edges.iter().map(|e| {
+            let edge = self.graph_data.graph.edge_references().nth(e.index()).unwrap();
+            (edge.source(), edge.target())
         }).collect();
         
 

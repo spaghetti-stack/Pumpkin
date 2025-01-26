@@ -1,10 +1,7 @@
 #[allow(unused)]
 use ford_fulkerson_lower_bounds::BoundedCapacity;
-#[allow(unused)]
 use petgraph::{graph::{DiGraph, EdgeReference, NodeIndex}, visit::EdgeRef};
-#[allow(unused)]
 use rand::Rng;
-use petgraph::graph::EdgeIndex;
 
 use crate::{
     basic_types::HashMap, engine::propagation::ReadDomains, predicates::{Predicate, PropositionalConjunction}, variables::IntegerVariable
@@ -100,9 +97,7 @@ fn max_count<Variable: IntegerVariable>(
 /// The graph is optionally colored according to the strongly connected components.
 /// If supplied, the variable nodes are placed in the same rank, as well as the value nodes.
 /// If supplied, the inconsistent edges are drawn in red and dotted.
-fn graph_to_dot<N: ToString, E: std::fmt::Display>(graph: &DiGraph<N, E>, scc: &[Vec<NodeIndex>], variable_nodes: &Vec<NodeIndex>, value_nodes: &Vec<NodeIndex>, inconsistent_edges: &Vec<EdgeIndex>) -> String {
-    
-
+fn graph_to_dot<N: ToString, E: std::fmt::Display>(graph: &DiGraph<N, E>, scc: &[Vec<NodeIndex>], variable_nodes: &Vec<NodeIndex>, value_nodes: &Vec<NodeIndex>, inconsistent_edges: &Vec<EdgeReference<BoundedCapacity>>) -> String {
     let mut dot_string = String::new();
     dot_string.push_str("digraph {\n");
 
@@ -144,7 +139,7 @@ fn graph_to_dot<N: ToString, E: std::fmt::Display>(graph: &DiGraph<N, E>, scc: &
         let edge_r = graph.edge_references().find(|e| e.id() == edge).unwrap();
         let source_name = format!("{}", source.index());
         let target_name = format!("{}", target.index());
-        let edge_style = if inconsistent_edges.iter().any(|e| *e == edge) {
+        let edge_style = if inconsistent_edges.iter().any(|e| e.id() == edge) {
             ",color=\"red\", style=\"dotted\""
         } else {
             ""
