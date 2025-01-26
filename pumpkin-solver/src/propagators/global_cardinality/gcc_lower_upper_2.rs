@@ -1,9 +1,9 @@
-use log::{debug, warn};
+use log::debug;
 
 use crate::{
     basic_types::Inconsistency, create_statistics_struct, engine::{
-        propagation::{LocalId, Propagator, ReadDomains}, reason, DomainEvents
-    }, predicate, predicates::PropositionalConjunction, propagators::global_cardinality::{conjunction_all_vars, max_count, min_count}, variables::IntegerVariable
+        propagation::{LocalId, Propagator, ReadDomains}, DomainEvents
+    }, predicate, predicates::PropositionalConjunction, propagators::global_cardinality::{max_count, min_count}, variables::IntegerVariable
 };
 
 use super::Values;

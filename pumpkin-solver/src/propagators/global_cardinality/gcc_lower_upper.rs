@@ -1,16 +1,16 @@
-use std::{cell::RefCell};
+use std::cell::RefCell;
 
-use fnv::{FnvBuildHasher, FnvHashSet, FnvHashMap};
-use log::{debug, error, warn};
+use fnv::{FnvBuildHasher, FnvHashMap};
+use log::{debug, warn};
 use petgraph::{
-    algo::has_path_connecting, dot::Dot, graph::{self, DiGraph, Edge, NodeIndex}, prelude::EdgeIndex, visit::EdgeRef, Graph
+    algo::has_path_connecting, graph::{DiGraph, NodeIndex}, prelude::EdgeIndex, visit::EdgeRef, Graph
 };
 
 use crate::{
     basic_types::{HashSet, Inconsistency}, create_statistics_struct, engine::{
         propagation::{LocalId, Propagator, ReadDomains},
         DomainEvents,
-    }, predicate, predicates::PropositionalConjunction, propagators::global_cardinality::*, variables::{DomainId, IntegerVariable}
+    }, predicate, predicates::PropositionalConjunction, propagators::global_cardinality::*, variables::IntegerVariable
 };
 
 use super::{ford_fulkerson_lower_bounds::BoundedCapacity, Values};
@@ -127,61 +127,63 @@ impl<Variable: IntegerVariable> GCCLowerUpper<Variable> {
         }
     }
 
-    fn update_value_edges_feasible_flow(&self, graph_data: &mut GraphData) {
-        graph_data
+    fn update_value_edges_feasible_flow(&mut self) {
+        self.graph_data
             .values_nodes
             .iter()
-            .zip(self.values.clone())
-            .for_each(|(i, v)| {
+            //.zip(self.values.clone())
+            .for_each(|i,| {
+                let v = self.values[*self.graph_data.node_index_to_value_index.get(i).unwrap()];
                 if v.omin == 0 {
-                    if let Some(rem) = graph_data.graph.find_edge(graph_data.source, *i) {
-                        let _ = graph_data.graph.remove_edge(rem);
-                    }
+                    //if let Some(rem) = self.graph_data.graph.find_edge(self.graph_data.source, *i) {
+                        //let _ = self.graph_data.graph.remove_edge(rem);
+                        
+                    let _ = self.graph_data.graph.update_edge(self.graph_data.source, *i, (0, 0).into());
+                    //}
                 } else {
-                    let _ = graph_data
+                    let _ = self.graph_data
                         .graph
-                        .update_edge(graph_data.source, *i, (0, v.omin).into());
+                        .update_edge(self.graph_data.source, *i, (0, v.omin).into());
                 }
             });
     }
 
-    fn update_value_edges_max_flow(&self, graph_data: &mut GraphData) {
+    fn update_value_edges_max_flow(&mut self) {
         // Add from s to vals usig omax and omin
-        graph_data
+        self.graph_data
             .values_nodes
             .iter()
             .zip(self.values.clone())
             .for_each(|(i, v)| {
                 let _ =
-                    graph_data
+                    self.graph_data
                         .graph
-                        .update_edge(graph_data.source, *i, (v.omin, v.omax).into());
+                        .update_edge(self.graph_data.source, *i, (v.omin, v.omax).into());
             });
     }
 
     fn update_graph(
-        &self,
-        graph_data: &mut GraphData,
+        &mut self,
         context: &crate::engine::propagation::PropagationContextMut,
     ) {
 
-        let intermediate_edges = std::mem::take(&mut graph_data.intermediate_edges);
+        let intermediate_edges = std::mem::take(&mut self.graph_data.intermediate_edges);
         
         // Remove the specified edges using retain_edges
         // Using remove_edge shifts the indices, causing potential bugs.
         let edge_set: std::collections::HashSet<EdgeIndex> = intermediate_edges.into_iter().collect();
-        graph_data.graph.retain_edges(|_, edge_index| !edge_set.contains(&edge_index));
+        self.graph_data.graph.retain_edges(|_, edge_index| !edge_set.contains(&edge_index));
 
         let mut intermediate_edges = Vec::new();
-        for (ival, val) in graph_data.values_nodes.iter().zip(&self.values) {
-            for (ivar, var) in graph_data.variables_nodes.iter().zip(&self.variables) {
+        for (ival, val) in self.graph_data.values_nodes.iter().zip(&self.values) {
+            for (ivar, var) in self.graph_data.variables_nodes.iter().zip(&self.variables) {
                 if context.contains(var, val.value) {
-                    intermediate_edges.push(graph_data.graph.add_edge(*ival, *ivar, (0, 1).into()));
+                    intermediate_edges.push(self.graph_data.graph.add_edge(*ival, *ivar, (0, 1).into()));
                 }
             }
         }
 
-        graph_data.intermediate_edges = intermediate_edges.into_iter().collect();
+        self.graph_data.intermediate_edges = intermediate_edges.into_iter().collect();
     }
 }
 
@@ -210,11 +212,8 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         "Global Cardinality Low Up"
     }
 
-    fn debug_propagate_from_scratch(
-        &self,
-        mut context: crate::engine::propagation::PropagationContextMut,
-    ) -> crate::basic_types::PropagationStatusCP {
-
+    fn propagate(&mut self, mut context: crate::engine::propagation::PropagationContextMut) -> crate::basic_types::PropagationStatusCP {
+        
         #[cfg(debug_assertions)]
         {
             self.variables.iter().for_each(|v| {
@@ -250,21 +249,20 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             Ok(())
         })?; 
 
-        //let graph_data = self.construct_graph(&context);
+        //let self.graph_data = self.construct_graph(&context);
                                 //conjunction_all_vars(&context, &self.variables),
 
-        let mut graph_data = self.graph_data.clone();
 
-        self.update_graph(&mut graph_data, &context);
+        self.update_graph(&context);
 
-        self.update_value_edges_feasible_flow(&mut graph_data);
+        self.update_value_edges_feasible_flow();
 
         // Find feasible flow
         let (max_flow, edge_flows) =
-            petgraph::algo::ford_fulkerson(&graph_data.graph, graph_data.source, graph_data.sink);
+            petgraph::algo::ford_fulkerson(&self.graph_data.graph, self.graph_data.source, self.graph_data.sink);
 
         // Update the flows so they appear on the graph when displayed
-        graph_data
+        self.graph_data
             .graph
             .edge_weights_mut()
             .zip(&edge_flows)
@@ -275,7 +273,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
         #[cfg(debug_assertions)]
         {
-            let dot = graph_to_dot(&graph_data.graph, &vec![], &self.graph_data.variables_nodes, &self.graph_data.values_nodes, &vec![]);
+            let dot = graph_to_dot(&self.graph_data.graph, &vec![], &self.graph_data.variables_nodes, &self.graph_data.values_nodes, &vec![]);
             debug!("feasible flow: {}", dot);
         }
 
@@ -296,18 +294,18 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             )));
         }
 
-        self.update_value_edges_max_flow(&mut graph_data);
+        self.update_value_edges_max_flow();
 
         let (max_flow, edge_flows) = ford_fulkerson_lower_bounds::ford_fulkerson(
-            &graph_data.graph,
-            graph_data.source,
-            graph_data.sink,
+            &self.graph_data.graph,
+            self.graph_data.source,
+            self.graph_data.sink,
             edge_flows,
             max_flow,
         );
 
         // Update the flows so they appear on the graph when displayed
-        graph_data
+        self.graph_data
             .graph
             .edge_weights_mut()
             .zip(&edge_flows)
@@ -318,7 +316,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
         #[cfg(debug_assertions)]
         {
-            let dot = graph_to_dot(&graph_data.graph, &vec![], &self.graph_data.variables_nodes, &self.graph_data.values_nodes, &vec![]);
+            let dot = graph_to_dot(&self.graph_data.graph, &vec![], &self.graph_data.variables_nodes, &self.graph_data.values_nodes, &vec![]);
             debug!("max flow {}", dot);
         }
 
@@ -338,16 +336,16 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         let mut residual_graph = DiGraph::new();
 
         // Add the same nodes to the residual graph
-        let nodes: Vec<_> = graph_data
+        let nodes: Vec<_> = self.graph_data
             .graph
             .node_indices()
-            .map(|idx| residual_graph.add_node(graph_data.graph[idx].clone()))
+            .map(|idx| residual_graph.add_node(self.graph_data.graph[idx].clone()))
             .collect();
 
-        assert!(graph_data.graph.node_count() == residual_graph.node_count());
+        assert!(self.graph_data.graph.node_count() == residual_graph.node_count());
 
         // Iterate over edges to calculate residual capacities
-        for edge in graph_data.graph.edge_references() {
+        for edge in self.graph_data.graph.edge_references() {
             let src = edge.source();
             let dst = edge.target();
             let BoundedCapacity {
@@ -375,7 +373,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
         }
 
 
-        if residual_graph.contains_edge(graph_data.source, graph_data.sink) {
+        if residual_graph.contains_edge(self.graph_data.source, self.graph_data.sink) {
             warn!("Residual graph contains edge from source to sink. Regin doesn't specify if this is allowed, Katsirelos et al. 2011 does not allow this.");
             //assert!(false);
         }
@@ -398,14 +396,14 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
         let mut inconsistent_edges = Vec::new();
 
-        let edges_ref: Vec<_> = graph_data.graph.edge_references().collect();
-        for edge in graph_data.intermediate_edges {
+        let edges_ref: Vec<_> = self.graph_data.graph.edge_references().collect();
+        for edge in &self.graph_data.intermediate_edges {
             let curr_edge = edges_ref[edge.index()];
             let ivar = curr_edge.target();
             let ival = curr_edge.source();
 
             let var_index = self.graph_data.node_index_to_variable_index[&ivar];
-            /*let var_index = graph_data
+            /*let var_index = self.graph_data
                 .variables_nodes
                 .iter()
                 .position(|vn| *vn == ivar)
@@ -415,7 +413,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
             let val_index = self.graph_data.node_index_to_value_index[&ival];
 
             /* 
-            let val_index = graph_data
+            let val_index = self.graph_data
                 .values_nodes
                 .iter()
                 .position(|vn| *vn == ival)
@@ -427,17 +425,17 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
                 /* let mut expl = Vec::new();
                 let mut expl2 = Vec::new();
-                graph_data.variables_nodes.iter().zip(self.variables.clone()).enumerate().for_each( |(ic, (vari_c,var_c)) | {
+                self.graph_data.variables_nodes.iter().zip(self.variables.clone()).enumerate().for_each( |(ic, (vari_c,var_c)) | {
                     
-                    graph_data.values_nodes.iter().zip(self.values.clone()).for_each(|(vali_c, val_c)| {
+                    self.graph_data.values_nodes.iter().zip(self.values.clone()).for_each(|(vali_c, val_c)| {
 
-                        let var_index_c = graph_data
+                        let var_index_c = self.graph_data
                         .variables_nodes
                         .iter()
                         .position(|vn| *vn == *vari_c)
                         .unwrap();
         
-                        let val_index_c = graph_data
+                        let val_index_c = self.graph_data
                             .values_nodes
                             .iter()
                             .position(|vn| *vn == *vali_c)
@@ -457,27 +455,34 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 warn!("expl2: {:?}", expl2);
                 warn!("conj all vars: {:?}", conjunction_all_vars(&context, &self.variables));
                 */
+                let naive_expl: Vec<Predicate> = conjunction_all_vars_vec(&context, &self.variables);
                 let mut expl2: Vec<Predicate> = vec![];
+
+                // Avoid lenghty explanation computation if the naive explanation only contains one predicate
+                if naive_expl.len() > 1 {
+                    
                 self.graph_data.initial_intermediate_edges.iter().for_each(|(i, j)| {
                     if Self::edge_joins_sccs(ivar, ival, &residual_graph, *i, *j) {
 
-                    let var_index = graph_data.node_index_to_variable_index[&j];
+                    let var_index = self.graph_data.node_index_to_variable_index[&j];
 
-                    let val_index = graph_data.node_index_to_value_index[&i];
+                    let val_index = self.graph_data.node_index_to_value_index[&i];
 
                     expl2.push(predicate!( self.variables[var_index] != self.values[val_index].value ));
 
                     }
                 });
 
-                let expl: Vec<Predicate> = conjunction_all_vars2(&context, &self.variables);
-                let expl_conj: PropositionalConjunction = expl.clone().into();
+                }else {
+                    expl2 = naive_expl.clone();
+                }
+
+                
                 debug!(
-                    "Removed: x{} = {}. expl_pred: {:?}, expl_conj: {:?}, expl2: {:?}",
+                    "Removed: x{} = {}. expl_pred: {:?}, expl2: {:?}",
                     var_index + 1,
                     self.values[val_index].value,
-                    expl,
-                    expl_conj,
+                    naive_expl,
                     expl2
                 );
 
@@ -486,7 +491,7 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 context.remove(
                     &self.variables[var_index],
                     self.values[val_index].value,
-                    //expl_conj,
+                    //naive_expl.into::<PropositionalConjunction>(),
                     Into::<PropositionalConjunction>::into(expl2),
                 )?;
             } else {
@@ -509,6 +514,14 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
 
        // panic!("Test");
 
+       Ok(())
+
+    }
+
+    fn debug_propagate_from_scratch(
+        &self,
+        _context: crate::engine::propagation::PropagationContextMut,
+    ) -> crate::basic_types::PropagationStatusCP {
         Ok(())
     }
 

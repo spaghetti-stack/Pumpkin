@@ -1,3 +1,4 @@
+#[allow(unused)]
 use ford_fulkerson_lower_bounds::BoundedCapacity;
 use petgraph::{graph::{DiGraph, EdgeReference, NodeIndex}, visit::EdgeRef};
 use rand::Rng;
@@ -44,20 +45,10 @@ where
     I: IntoIterator<Item = &'a Variable>,
     Variable: IntegerVariable + 'a,
 {
-    let res: Vec<Predicate> = vars
-        .into_iter()
-        .flat_map(|var| {
-            //[
-            //    predicate!(var >= context.lower_bound(var)),
-            //    predicate!(var <= context.upper_bound(var)),
-            //]
-            var.describe_domain(&context.assignments)
-        })
-        .collect();
-    res.into()
+    conjunction_all_vars_vec(context, vars).into()
 }
 
-fn conjunction_all_vars2<'a, I, Variable>(
+fn conjunction_all_vars_vec<'a, I, Variable>(
     context: &crate::engine::propagation::PropagationContextMut,
     vars: I,
 ) -> Vec<Predicate>
@@ -101,6 +92,7 @@ fn max_count<Variable: IntegerVariable>(
     occurences
 }
 
+#[cfg(debug_assertions)]
 /// Helper method to convert a graph to a dot string.
 /// The graph is optionally colored according to the strongly connected components.
 /// If supplied, the variable nodes are placed in the same rank, as well as the value nodes.
