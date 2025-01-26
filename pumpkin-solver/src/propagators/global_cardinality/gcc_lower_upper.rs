@@ -461,17 +461,21 @@ impl<Variable: IntegerVariable + 'static> Propagator for GCCLowerUpper<Variable>
                 // Avoid lenghty explanation computation if the naive explanation only contains one predicate
                 if naive_expl.len() > 1 {
                     
-                self.graph_data.initial_intermediate_edges.iter().for_each(|(i, j)| {
-                    if Self::edge_joins_sccs(ivar, ival, &residual_graph, *i, *j) {
+                for (i, j) in self.graph_data.initial_intermediate_edges.iter() {
 
                     let var_index = self.graph_data.node_index_to_variable_index[&j];
 
                     let val_index = self.graph_data.node_index_to_value_index[&i];
 
-                    expl2.push(predicate!( self.variables[var_index] != self.values[val_index].value ));
+                    let var = &self.variables[var_index];
+                    let val = self.values[val_index].value;
+                    
+                    if !context.contains(var, val ) && Self::edge_joins_sccs(ivar, ival, &residual_graph, *i, *j) {
+
+                        expl2.push(predicate!(  var != val ));
 
                     }
-                });
+                };
 
                 }else {
                     expl2 = naive_expl.clone();
