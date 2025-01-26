@@ -781,7 +781,7 @@ plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_cla
 #plot_all_statistics_bar(normalized_runtimes, normalized_lbds, normalized_learned_clause_lengths, normalized_conflict_sizes, avg_runtimes, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes)
 # %%
 
-directories = ["output_sudoku/" ]
+directories = ["output_sudoku_single/" ]
 
 avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes = parse_benchmark_dirs(directories)
 normalized_runtimes = normalize(avg_runtimes)
@@ -801,5 +801,27 @@ plot_all_statistics(normalized_runtimes, normalized_lbds, normalized_learned_cla
 
 # %%
 
+directories = ["output_terminating_new_expls/" ]
+
+avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes = parse_benchmark_dirs(directories)
+normalized_runtimes = normalize(avg_runtimes)
+normalized_objectives = normalize_objective(avg_objectives)
+normalized_lbds = normalize(avg_lbds)
+normalized_learned_clause_lengths = normalize(avg_learned_clause_lengths)
+normalized_conflict_sizes = normalize(avg_conflict_sizes)
+
+plot_runtime_and_objective(normalized_runtimes, normalized_objectives, avg_runtimes, avg_objectives)
+
+# %%
+directories = ["output_terminating_old_expls/" ]
+
+avg_runtimes, avg_objectives, avg_lbds, avg_learned_clause_lengths, avg_conflict_sizes = parse_benchmark_dirs(directories)
+normalized_runtimes = normalize(avg_runtimes)
+normalized_objectives = normalize_objective(avg_objectives)
+normalized_lbds = normalize(avg_lbds)
+normalized_learned_clause_lengths = normalize(avg_learned_clause_lengths)
+normalized_conflict_sizes = normalize(avg_conflict_sizes)
+
+plot_runtime_and_objective(normalized_runtimes, normalized_objectives, avg_runtimes, avg_objectives)
 
 # %%
